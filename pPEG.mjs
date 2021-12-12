@@ -878,7 +878,7 @@ function escape_codes(str) {
 
 function fault_report(report) {
     // console.log("Error:", report);
-    return ["$error", report];
+    return {ok:false, err:report}; //["$error", report];
 }
 
 function trace_report(report) {
@@ -936,24 +936,30 @@ function parse(codex, input, extend, options) {
     }
     if (input.length === 0) {
         if (result && env.tree.length === 1) return env.tree[0];
-        return ["$error", "empty input string"]
+        return {ok:false, err:"empty input string"}; // ["$error", "empty input string"]
     }
     if (env.tree.length !== 1) { // can this happen?
         throw "bad tree? " + JSON.stringify(env.tree);
     }
-    return env.tree[0];
+    return {ok:true, err:undefined, ptree:env.tree[0]};
 }
 
 function compile(grammar, extend, options) {
     const peg = parse(pPEG_codex, grammar, {}, options);
     // console.log(JSON.stringify(peg));
-    if (peg[0] === "$error") throw peg[1];
-    const codex = compiler(peg[1]);
+    if (!peg.ok) {
+        peg.err = "grammar error\n"+peg.err,
+        peg.parse = () => peg;
+        return peg; // throw peg.err;
+    }
+    const codex = compiler(peg.ptree[1]);
     // console.log("codex\n",JSON.stringify(codex));
     const parser = function parser(input, options) {
         return parse(codex, input, extend, options);
     }
-    return {
+    return { ok: true,
+        err: undefined,
+        peg,
         parse: parser,
         codex,
     };

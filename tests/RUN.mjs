@@ -78,18 +78,18 @@ function run_tests(name, tests) {
         const test_case = test_cases[i].split("\n--\n");
         results.push("--- "+name+" case:"+(i+1));
         results.push(test_case[0]);
-        const p = peg.compile(test_case[0]);
+        const grammar = peg.compile(test_case[0]); // TODO catch err
         for (let j=1; j<test_case.length; j+=1) {
             if (!test_case[j]) continue;
             results.push('--  '+name+" case:"+(i+1)+" input:"+j);
             results.push(test_case[j]);
             results.push("-");
             try {
-                const tree = p.parse(test_case[j]);
-                if (tree[0] === "$error") {
-                    results.push("Error: "+tree[1]);
+                const p = grammar.parse(test_case[j]);
+                if (p.ok) {
+                    results.push(JSON.stringify(p.ptree));
                 } else {
-                    results.push(JSON.stringify(tree));
+                    results.push("Error: "+p.err);
                 }    
             } catch (error) {
                 results.push(error);

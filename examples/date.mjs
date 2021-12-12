@@ -10,7 +10,7 @@ const dg = peg.compile(`
     d     = [0-9]
 `); // '0'/'1'/'2'/'3'/'4'/'5'/'6'/'7'/'8'/'9'
 
-const dt = dg.parse("2021-4-05  xxx");
+const p = dg.parse("2021-4-05  xxx");
 
-if (dt[0] === '$error') console.log(dt[1]);
-else console.log(JSON.stringify(dt));
+if (p.ok) console.log(JSON.stringify(p.ptree));
+else console.log(p.err);

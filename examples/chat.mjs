@@ -29,7 +29,8 @@ const test = peg.compile(`
 
 const p = test.parse("John says: Hello @michael this will work\n");
 
-console.log(JSON.stringify(p));
+if (p.ok) console.log(JSON.stringify(p.ptree));
+else console.log(p.err);
 
 /*
 chat markup example...

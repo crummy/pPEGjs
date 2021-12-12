@@ -20,8 +20,8 @@ a3,b3,c3
 
 const p = csv.parse(test);
 
-if (p[0] === '$error') console.log(p[1])
-else console.log(JSON.stringify(p));
+if (p.ok) console.log(JSON.stringify(p.ptree));
+else console.log(p.err);
 
 /*
 CSV example....

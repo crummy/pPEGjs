@@ -6,6 +6,7 @@ See: <https://github.com/pcanz/pPEG>
 
 ##  Example
 
+``` js
     import peg from './pPEG.mjs'
 
     console.log("url grammar...");
@@ -23,12 +24,13 @@ See: <https://github.com/pcanz/pPEG>
 
     const parse = uri.parse(test);
 
-    console.log(JSON.stringify(parse));
+    if (parse.ok) console.log(JSON.stringify(parse.ptree));
+    else console.log(parse.err);
 
     /*
     url grammar...
     ["URI",[["scheme","http"],["auth","www.ics.uci.edu"],["path","/pub/ietf/uri/"],["frag","Related"]]]
     */
-
+```
 
 [pPEG]: https://github.com/pcanz/pPEG
