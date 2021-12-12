@@ -46,9 +46,9 @@ A full pPEG implementation:     [Machine-6]
     130 LOC built-in extensions
     950 LOC total
 
-[Machine-1]: https://github.com/pcanz/pPEG.js/blob/master/DeveloperKit/machine-1.js
-[Machine-2]: https://github.com/pcanz/pPEG.js/blob/master/DeveloperKit/machine-2.js
-[Machine-3]: https://github.com/pcanz/pPEG.js/blob/master/DeveloperKit/machine-3.js
-[Machine-4]: https://github.com/pcanz/pPEG.js/blob/master/DeveloperKit/machine-4.js
-[Machine-5]: https://github.com/pcanz/pPEG.js/blob/master/DeveloperKit/machine-5.js
-[Machine-6]: https://github.com/pcanz/pPEG.js/blob/master/pPEG.mjs
+[Machine-1]: https://github.com/pcanz/pPEGjs/blob/master/DeveloperKit/machine-1.js
+[Machine-2]: https://github.com/pcanz/pPEGjs/blob/master/DeveloperKit/machine-2.js
+[Machine-3]: https://github.com/pcanz/pPEGjs/blob/master/DeveloperKit/machine-3.js
+[Machine-4]: https://github.com/pcanz/pPEGjs/blob/master/DeveloperKit/machine-4.js
+[Machine-5]: https://github.com/pcanz/pPEGjs/blob/master/DeveloperKit/machine-5.js
+[Machine-6]: https://github.com/pcanz/pPEGjs/blob/master/pPEG.mjs

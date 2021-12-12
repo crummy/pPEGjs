@@ -1,7 +1,7 @@
 /*
     pPEG in JavaScript
 
-    exports: peg.compile(`...grammar...`)
+    See: <https://github.com/pcanz/pPEG>
 
     No dependencies, this is the only file you need.
 */
