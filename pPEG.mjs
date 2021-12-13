@@ -373,8 +373,9 @@ function infix(exp, env) {
             let rbp = op? 0 : -1, 
                 sfx = op? op[0].slice(-3) : undefined;
             if (sfx && sfx[0] === '_') {  // _xL or _xR
-                if (sfx[2] === "L") rbp = (sfx[1]<<1)+1;
-                if (sfx[2] === "R") rbp = (sfx[1]+1)<<1;
+                let x = sfx.charCodeAt(1);
+                if (sfx[2] === "L") rbp = (x<<1)+1;
+                if (sfx[2] === "R") rbp = (x+1)<<1;
             }
             if (rbp < lbp) {
                 next -= 1; // restore op

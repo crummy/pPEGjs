@@ -9,8 +9,6 @@ See: <https://github.com/pcanz/pPEG>
 ``` js
     import peg from './pPEG.mjs'
 
-    console.log("url grammar...");
-
     const uri = peg.compile(`
         URI     = (scheme ':')? ('//' auth)? path ('?' query)? ('#' frag)?
         scheme  = ~[:/?#]+
@@ -28,7 +26,6 @@ See: <https://github.com/pcanz/pPEG>
     else console.log(parse.err);
 
     /*
-    url grammar...
     ["URI",[["scheme","http"],["auth","www.ics.uci.edu"],["path","/pub/ietf/uri/"],["frag","Related"]]]
     */
 ```

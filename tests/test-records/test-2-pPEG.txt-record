@@ -1,4 +1,4 @@
---- pPEG.txt case:1
+--- test-2-pPEG.txt case:1
     Peg   = " " (rule " ")+
     rule  = id " = " alt
 
@@ -23,7 +23,7 @@
     extn  = '<' ~'>'* '>'
 
     _space_ = ('#' ~[\n\r]* / [ \t\n\r]*)*
---  pPEG.txt case:1 input:1
+--  test-2-pPEG.txt case:1 input:1
     Peg   = " " (rule " ")+
     rule  = id " = " alt
 
