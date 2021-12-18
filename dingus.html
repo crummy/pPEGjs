@@ -1,0 +1,147 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta lang=en charset="UTF-8">
+<style>
+    .box { display:flex; flex-wrap: wrap;  }
+    .grammar, .input, .output {
+        flex:auto;
+        width:400px; margin: 2px;
+        border:thin solid gray;
+    }
+    .header { position: relative; top:0px; height:20px;
+        padding:5px;
+        border-bottom: thin solid gray; 
+        background: whitesmoke;
+    }
+    .header > button {float:right;}
+    .header > .examples {float:right;}
+    #grammar, #input, #output {
+        position: relative;
+        height:250px;
+        font-family: "Monaco", "Courier New", monospace; 
+        white-space:pre-wrap; margin:2px;
+        padding:5px;
+        resize:both; overflow:auto;
+    }
+</style>
+<script type='module'>
+    import peg from './pPEG.mjs';
+
+    window.dingus = {
+        run: () => {
+            const grammar = document.getElementById('grammar'),
+             parser = peg.compile(grammar.textContent),
+             input = document.getElementById('input'),
+             parse = parser.parse(input.textContent),
+             output = document.getElementById('output');
+            if (parse.ok) output.textContent = JSON.stringify(parse.ptree);
+            else output.textContent = parse.err;
+        },
+        eg: () => {
+            const eg = document.getElementById('examples'),
+                grammar = document.getElementById('grammar'),
+                input = document.getElementById('input');
+            grammar.textContent = document.getElementById(eg.value+'-grammar').textContent,
+            input.textContent = document.getElementById(eg.value+'-input').textContent;
+            dingus.run();
+        },
+    }
+
+    dingus.run();
+</script>
+</head>
+<body>
+<h1>pPEG Dingus</h1>
+
+<div class='box'>
+    <div class='grammar'>
+        <div class='bag'>
+            <div class='header'>
+                <label for="grammar">Grammar</label>
+                <span  class='examples'>
+                <label for="examples">Examples: </label>
+                <select name="examples" id="examples" onChange='dingus.eg()'>
+                    <option value="date">Date</option>
+                    <option value="url">URL</option>
+                    <option value="csv">CSV</option>
+                    <option value="json">JSON</option>
+                </select>
+                </span>
+            </div>
+            <div id='grammar' contenteditable='true'>date  = year '-' month '-' day
+year  = [1-2][0-9]*3
+month = '0'[0-9] / '1'[0-2]
+day   = [0-3][0-9]
+            </div>
+        </div>
+    </div>
+    <div class='input'>
+        <div class='bag'>
+            <div class='header'>
+                <label for="input">Input</label>
+                <button onClick='dingus.run()'>Parse..</button>
+             </div>
+            <div id='input' contenteditable='true'>2021-03-04</div>
+        </div>
+    </div>
+    <div class='output'>
+        <div class='bag'>
+            <div class='header'>Parse Tree</div>
+            <div id='output'></div>
+        </div>
+    </div>
+</div>
+
+<div hidden id='date-grammar'>date  = year '-' month '-' day
+year  = [1-2][0-9]*3
+month = '0'[0-9] / '1'[0-2]
+day   = [0-3][0-9]
+</div>
+<div hidden id='date-input'>2021-02-03</div>
+
+<div hidden id='url-grammar'>URI     = (scheme ':')? ('//' auth)? 
+          path ('?' query)? ('#' frag)?
+scheme  = ~[:/?#]+
+auth    = ~[/?#]*
+path    = ~[?#]*
+query   = ~'#'*
+frag    = ~[ \t\n\r]*
+</div>
+<div hidden id='url-input'>http://www.ics.uci.edu/pub/ietf/uri/#Related</div>
+
+<div hidden id='csv-grammar'>CSV     = Hdr Row+
+Hdr     = Row
+Row     = field (',' field)* '\r'? '\n'
+field   = _string / _text / ''
+
+_text   = ~[,\n\r]+
+_string = '"' (~["] / '""')* '"'
+</div>
+<div hidden id='csv-input'>A,B,C
+a1,b1,c1
+a2,"b,2",c2
+a3,b3,c3</div>
+
+<div hidden id='json-grammar'>json   = " " value " "
+value  =  Str / Arr / Obj / num / lit
+Obj    = "{ " (memb (" , " memb)*)? " }"
+memb   = Str " : " value
+Arr    = "[ " (value (" , " value)*)? " ]"
+Str    = '"' chars* '"'
+chars  = ~[\u0000-\u001F"\\]+ / '\\' esc
+esc    = ["\\/bfnrt] / 'u' [0-9a-fA-F]*4
+num    = _int _frac? _exp?
+_int   = '-'? ([1-9] [0-9]* / '0')
+_frac  = '.' [0-9]+
+_exp   = [eE] [+-]? [0-9]+
+lit    = "true" / "false" / "null"
+</div>
+<div hidden id='json-input'>{
+    "answer": 42,
+    "mixed": [1, 2.3, "a\\tstring", true, [4, 5]],
+    "empty": {},
+}</div>
+
+</body>
+</html>
