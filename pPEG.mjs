@@ -393,28 +393,22 @@ function infix(exp, env) {
 function same_match(exp, env) { // <@name>
     const name = exp[1].slice(2,-1).trim(),
         idx = env.codex.names[name],
-        code = env.code[idx],
-        start = env.pos;
+        code = env.code[idx];
     if (!code) throw exp[1]+" undefined rule: "+name;
-    if (!code[0](code, env)) return false;
-    const match = env.input.slice(start,env.pos)
+    let prior = ''; // previous name rule result
     for (let i = env.tree.length-1; i>=0; i-=1) {
         const [rule, value] = env.tree[i];
         if (rule === name) {
-            if (match.length < value.length) return false;
-            if (match.startsWith(value)) {
-                const m = match.length, n = value.length;
-                if (m > n) {
-                    env.pos = env.pos - (m-n);
-                }                
-                return true;
-            }
-            return false;
+            prior = value;
+            break;
         }
     }
-    // if (!more) throw exp[1]+" failed to find any: "+name;
-    env.pos = start; // '' match default
-    return true;
+    if (prior === '') return true; // '' empty match deafult (no prior value)
+    if (env.input.startsWith(prior, env.pos)) {
+        env.pos += prior.length;
+        return true;
+    }    
+    return false;
 }
 
 // <quote> and <quopter> --------------------------------------
