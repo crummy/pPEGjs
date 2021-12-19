@@ -1,4 +1,20 @@
- 
+S = " { " x* " } "
+x = " x "
+--
+{ x xx }
+--
+{}
+---
+S  = xy z
+xy = ('x' 'y')?
+z  = ~[]*
+--
+xyz
+--
+z
+--
+xz
+---
 date  = year '-' month '-' day
 year  = [1-2] [0-9]*3
 month = [0-1] [0-9]

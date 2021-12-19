@@ -93,11 +93,11 @@ function ID(exp, env) { // [ID, idx, name]
         stack = env.tree.length,
         name = exp[2],
         expr = env.code[exp[1]];
-    if (env.trace) trace_enter(exp, env);
     if (env.depth > env.max_depth) {
         throw "grammar error, max depth of recursion exceeded in rules:\n ... "+
             env.rule_names.slice(-6).join(" ");
     }
+    if (env.trace) trace_enter(exp, env);
     env.depth += 1;
     env.rule_names[env.depth] = name;
     env.start[env.depth] = start;
@@ -115,15 +115,15 @@ function ID(exp, env) { // [ID, idx, name]
         if (env.trace) trace_result(exp, env, true, start);
         return true;
     }
-    if (env.tree.length === stack) { // terminal string value..
-        const result = [name, env.input.slice(start, env.pos)]
+    if (env.tree.length-stack > 1 || name[0] <= "Z") {
+        const result = [name, env.tree.slice(stack)]; // stack..top
+        env.tree = env.tree.slice(0, stack); // delete stack..
         env.tree.push(result);
         if (env.trace) trace_result(exp, env, result);
         return true;
     }
-    if (env.tree.length-stack > 1 || name[0] <= "Z") {
-        const result = [name, env.tree.slice(stack)]; // stack..top
-        env.tree = env.tree.slice(0, stack); // delete stack..
+    if (env.tree.length === stack) { // terminal string value..
+        const result = [name, env.input.slice(start, env.pos)]
         env.tree.push(result);
         if (env.trace) trace_result(exp, env, result);
         return true;
@@ -157,17 +157,24 @@ function SEQ(exp, env) { // [SEQ, min, max, [...exp]]
     const [_, min, max, args] = exp;
     let count = 0;
     while (true) { // min..max
-        let i=0, start = env.pos;
+        let i=0, start = env.pos, stack = env.tree.length;
         for (i=0; i<args.length; i+=1) {
             const arg = args[i];
             const result = arg[0](arg, env);
             if (result === false) {
+                if (count >= min) {
+                    env.pos = start;
+                    if (env.tree.length > stack) {
+                        env.tree = env.tree.slice(0, stack);
+                    }            
+                    return true;
+                }
                 if (env.pos > start && env.pos > env.fault_pos) {
                     env.fault_pos = env.pos; 
                     env.fault_rule = env.rule_names[env.depth];
                     env.fault_exp = exp[3][i];
                 }
-                return (count >= min);
+                return false;
             }
         }
         count += 1;
@@ -889,7 +896,7 @@ function parse(codex, input, extend, options) {
         input,
         pos: 0,
         peak: 0, // pos high water mark
-        depth: -1, // rule recursion
+        depth: 0, // rule recursion
         max_depth: 100,
         rule_names: [], // dynamic stack
         tree: [], // ptree construction
