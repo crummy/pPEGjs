@@ -23,7 +23,7 @@ const json = peg.compile(`
 const p = json.parse(`
   { "answer": 42,
     "mixed": [1, 2.3, "a\\tstring", true, [4, 5]],
-    "empty": {},
+    "empty": {}
   }
 `, 'Arr');
 
