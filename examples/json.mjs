@@ -25,7 +25,7 @@ const p = json.parse(`
     "mixed": [1, 2.3, "a\\tstring", true, [4, 5]],
     "empty": {}
   }
-`, 'Arr');
+`);
 
 if (p.ok) console.log(JSON.stringify(p.ptree));
 else console.log(p.err);
