@@ -93,9 +93,10 @@ function ID(exp, env) { // [ID, idx, name]
         stack = env.tree.length,
         name = exp[2],
         expr = env.code[exp[1]];
-    if (env.depth > env.max_depth) {
-        throw "grammar error, max depth of recursion exceeded in rules:\n ... "+
-            env.rule_names.slice(-6).join(" ");
+    if (env.panic || env.depth > env.max_depth) {
+        if (!env.panic) env.panic = "max depth of recursion exceeded in rules:\n ... "+
+            env.rule_names.slice(-6).join(" ")+"\n";
+        return false;
     }
     if (env.trace) trace_enter(exp, env);
     env.depth += 1;
@@ -341,12 +342,22 @@ function EXTN(exp, env) { // [EXTN, "<xxx>"]
     key = sigil || key;
     const fn = env.extend[key] || builtin(key);
     if (!fn) {
-        throw "missing extension: "+exp[1];
+        if (env.pos > env.fault_pos) {
+            env.fault_pos = env.pos; 
+            env.fault_rule = env.rule_names[env.depth];
+            env.fault_exp = "missing extension: "+exp[1];;
+        }
+        return false;
     }
-    const result = fn(exp, env);
-    if (env.trace) trace_extn(exp, env, result);
-    if (result) return true; // allow any JS truthy return
-    return false;
+    try {
+        const result = fn(exp, env);
+        if (env.trace) trace_extn(exp, env, result);
+        if (result) return true; // allow any JS truthy return
+        return false;
+    } catch(err) { // treat extn exceptions as panic failures
+        env.panic = err;
+        return false;
+    }
 }
 
 // bultins -- predefined extension functions -------------------------------
@@ -633,6 +644,7 @@ function indent(env) {
 // exp decode display ------------------------------------------------
 
 function exp_show(exp) {
+    if (typeof exp == 'string') return exp;
     switch (exp[0]) {
         case ID: return exp[2];
         case SQ: return "'"+str_esc(exp[2])+"'";
@@ -901,6 +913,7 @@ function parse(codex, input, extend, options) {
         rule_names: [], // dynamic stack
         tree: [], // ptree construction
         // fault reporting .........
+        panic: null, // crash
         fault_pos: -1,
         fault_rule: null,
         fault_exp: null,
@@ -920,8 +933,8 @@ function parse(codex, input, extend, options) {
     }
     const start = codex.start;
     const result = start[0](start, env);
-    if (!result || env.pos < input.length) {
-        let report = "";
+    if (!result || env.pos < input.length || env.panic) {
+        let report = env.panic || "";
         if (result) {
             if (env.options.short) return env.tree[0]; // OK
             report += "Fell short at line: "+line_number(input, env.pos)+"\n";
@@ -941,7 +954,7 @@ function parse(codex, input, extend, options) {
         return {ok:false, err:"empty input string"}; // ["$error", "empty input string"]
     }
     if (env.tree.length !== 1) { // can this happen?
-        throw "bad tree? " + JSON.stringify(env.tree);
+        return {ok:false, err:"bad tree? "+JSON.stringify(env.tree)};
     }
     return {ok:true, err:undefined, ptree:env.tree[0]};
 }
@@ -949,22 +962,24 @@ function parse(codex, input, extend, options) {
 function compile(grammar, extend, options) {
     const peg = parse(pPEG_codex, grammar, {}, options);
     // console.log(JSON.stringify(peg));
+    if (peg.ok) {
+        try {
+            peg.codex = compiler(peg.ptree[1]);
+            // console.log("codex\n",JSON.stringify(peg.codex));
+        } catch(err) {
+            peg.ok = false;
+            peg.err = err;
+        }
+    }
     if (!peg.ok) {
         peg.err = "grammar error\n"+peg.err,
         peg.parse = () => peg;
-        return peg; // throw peg.err;
+        return peg;
     }
-    const codex = compiler(peg.ptree[1]);
-    // console.log("codex\n",JSON.stringify(codex));
     const parser = function parser(input, options) {
-        return parse(codex, input, extend, options);
+        return parse(peg.codex, input, extend, options);
     }
-    return { ok: true,
-        err: undefined,
-        peg,
-        parse: parser,
-        codex,
-    };
+    return { ok: true, peg, parse: parser };
 }
 
 const peg = { compile };

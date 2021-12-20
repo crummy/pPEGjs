@@ -22,34 +22,34 @@ let txts = files.filter((path) => path.slice(-4) === ".txt");
 // console.log(txts);
 
 for (const file of txts) {
-    const file_path = new URL('./'+file, import.meta.url); // __dirname+'/'+file;
-    const result_path = new URL('./test-records/'+file+'-result', import.meta.url);
+    const file_url = new URL('./'+file, import.meta.url); // __dirname+'/'+file;
+    const result_url = new URL('./test-records/'+file+'-result', import.meta.url);
     // __dirname+'/test-records/'+file+'-result';
-    const record_path = new URL('./test-records/'+file+'-record', import.meta.url);
+    const record_url = new URL('./test-records/'+file+'-record', import.meta.url);
     // __dirname+'/test-records/'+file+'-record';
-    let tests = fs.readFileSync(file_path, 'utf8');
+    let tests = fs.readFileSync(file_url, 'utf8');
     let results = run_tests(file, tests);
-    let record = read_file(record_path);
+    let record = read_file(record_url);
     if (!record) { // no file.txt-record
         console.log(results);
-        if (!new_record(file, record_path, results)) break;
+        if (!new_record(file, record_url, results)) break;
     } else if (results === record) {
         console.log('OK '+file);
     } else { // errors...
         console.log("Error: "+file+'-result !== '+file+'-record');
-        write_file(result_path, results);
-        const obj = cp.spawnSync("diff", ["-y", result_path, record_path]);
+        write_file(result_url, results);
+        const obj = cp.spawnSync("diff", ["-y", result_url.pathname, record_url.pathname]);
         console.log(obj.output.toString());
-        if (!new_record(file, record_path, results))
+        if (!new_record(file, record_url, results))
             break; // skip rest of test files...
     } 
 }
 
-function new_record(file, record_path, results) {
+function new_record(file, record_url, results) {
     if (!readline.keyInYN("OK to record results?"))
         return false;
     console.log("New: "+file+'-record');
-    write_file(record_path, results);
+    write_file(record_url, results);
     return true;
 }
 
