@@ -15,13 +15,20 @@ z
 --
 xz
 ---
-    s   = any* eof
-    any = ~[]
-    eof = !any
+s   = any* eof
+any = ~[]
+eof = !any
 --
 xyz
 ---
-    s = " abc"i*
+s = x (',' x)*
+x = 'x' / ''
+--
+x,x,x
+--
+x,,,x,,
+---
+s = " abc"i*
 --
 abc ABC aBc
 ---

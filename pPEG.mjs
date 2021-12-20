@@ -140,7 +140,7 @@ function ALT(exp, env) { // [ALT, [...exp], [...guards]]
     for (let i=0; i< exp[1].length; i+=1) {
         if (!env.trace && exp.length > 2) {
             const x = exp[2][i]; // guard ch
-            if (x !== null && ch !== x) continue; // forget this alt
+            if (x && ch !== x) continue; // forget this alt
         }
         const arg = exp[1][i];
         const result = arg[0](arg, env);
@@ -577,6 +577,7 @@ function trace_enter(exp, env) {
 
 function trace_result(exp, env, result, start) {
     if (env.trace_depth === -1) return; // not active
+    if (env.depth+1 < env.trace_depth) return;
     if (result === false) {
         trace_report(indent(env)+exp_show(exp)+" != "+show_line(env));
     } else if (result === true) {
@@ -585,10 +586,6 @@ function trace_result(exp, env, result, start) {
         let show = JSON.stringify(result);
         if (show.length > 70) show = show.slice(0,60)+" ... ]";
         trace_report(indent(env)+exp[2]+" => "+show);
-    }
-    if (env.depth === env.trace_depth) {
-        if (env.trace === true) env.trace = false; // <?> toggle
-        env.trace_depth = -1;
     }
 }
 
@@ -837,7 +834,7 @@ function compiler(rules) { // -> { rules, names, code, start, space }
     }
     
     function first_char(exp, code) {
-        switch (exp[0]) {
+        switch (exp[0]) { // TODO empty sq or dq return undefined...
             case ID: {
                 return first_char(code[exp[1]], code);
             }

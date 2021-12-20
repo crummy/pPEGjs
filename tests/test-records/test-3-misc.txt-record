@@ -26,26 +26,37 @@ xz
 -
 ["S",[["xy",""],["z","xz"]]]
 --- test-3-misc.txt case:3
-    s   = any* eof
-    any = ~[]
-    eof = !any
+s   = any* eof
+any = ~[]
+eof = !any
 --  test-3-misc.txt case:3 input:1
 xyz
 -
 ["s",[["any","x"],["any","y"],["any","z"],["eof",""]]]
 --- test-3-misc.txt case:4
-    s = " abc"i*
+s = x (',' x)*
+x = 'x' / ''
 --  test-3-misc.txt case:4 input:1
+x,x,x
+-
+["s",[["x","x"],["x","x"],["x","x"]]]
+--  test-3-misc.txt case:4 input:2
+x,,,x,,
+-
+["s",[["x","x"],["x",""],["x",""],["x","x"],["x",""],["x",""]]]
+--- test-3-misc.txt case:5
+s = " abc"i*
+--  test-3-misc.txt case:5 input:1
 abc ABC aBc
 -
 ["s","abc ABC aBc"]
---- test-3-misc.txt case:5
+--- test-3-misc.txt case:6
 s = '\' [nrt]
---  test-3-misc.txt case:5 input:1
+--  test-3-misc.txt case:6 input:1
 \n
 -
 ["s","\\n"]
---- test-3-misc.txt case:6
+--- test-3-misc.txt case:7
 # test comments....
 date  = year '-' month '-' day
 # ...
@@ -53,7 +64,7 @@ year  = [1-2] [0-9]*3
 month = [0-1] [0-9] # comment..
 day   = [0-3] [0-9]
 # last comment
---  test-3-misc.txt case:6 input:1
+--  test-3-misc.txt case:7 input:1
 2021-04-05
 -
 ["date",[["year","2021"],["month","04"],["day","05"]]]
