@@ -30,7 +30,7 @@ const pPEG_grammar = `
     group = "( " alt " )"
     extn  = '<' ~'>'* '>'
 
-    _space_ = ('#' ~[\n\r]* / [ \t\n\r]*)*
+    _space_ = ('#' ~[\n\r]* / [ \t\n\r]+)*
 `;
 
 const pPEG_rules =
@@ -803,7 +803,7 @@ function compiler(rules) { // -> { rules, names, code, start, space }
         } else if (suffix === "range") { // *N..M
             // ["range", [[num, min],["dots", ".."]]]
             if (sfx.length === 2) { // *N..
-                min =  parseInt(sfx, 10);
+                min =  parseInt(sfx[0][1], 10);
             } else { // *N..M 
                 // ["range", [[num, min],["dots", ".."],["num", max]]]
                 min = parseInt(sfx[0][1], 10);
@@ -981,4 +981,4 @@ function compile(grammar, extend, options) {
 
 const peg = { compile };
 
-export default peg; 
+export default peg;
