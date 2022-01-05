@@ -2,14 +2,16 @@
 
 This is an implementation of [pPEG] in JavaScript.
 
-See: <https://github.com/pcanz/pPEG>
+A single file JavaScript module with no dependencies, that can be run in Node.js or in a browser.
 
 ##  Example
 
 ``` js
     import peg from './pPEG.mjs'
 
-    const uri = peg.compile(`
+    // Equivalent to the regular expression for well-formed URI's in RFC 3986.
+
+    const pURI = peg.compile(`
         URI     = (scheme ':')? ('//' auth)? path ('?' query)? ('#' frag)?
         scheme  = ~[:/?#]+
         auth    = ~[/?#]*
@@ -18,19 +20,46 @@ See: <https://github.com/pcanz/pPEG>
         frag    = ~[ \t\n\r]*
     `);
 
+    if (!pURI.ok) throw "URI grammar error: "+pURI.err;
+
     const test = "http://www.ics.uci.edu/pub/ietf/uri/#Related";
 
-    const parse = uri.parse(test);
+    const uri = pURI.parse(test);
 
-    if (parse.ok) console.log(JSON.stringify(parse.ptree));
-    else console.log(parse.err);
+    if (uri.ok) console.log(JSON.stringify(uri.ptree));
+    else console.log(uri.err);
 
     /*
     ["URI",[["scheme","http"],["auth","www.ics.uci.edu"],["path","/pub/ietf/uri/"],["frag","Related"]]]
     */
 ```
-For an interactive demo try the [dingus].
+
+##  API
+
+The `import` provides a `peg` object with a `compile` function which takes a string that defines your grammar.
+
+The `compile` result is an object with a `parse` function:
+
+    {
+      ok: Boolean, true if there are no errors,
+
+      err: String, an error report,
+
+      parse: (String) => poi
+    }
+
+The `parse` function takes a string and generates a `poi` object:
+
+    {
+      ok: Boolean, true if there are no errors,
+
+      err: String, an error report,
+
+      ptree: parse tree
+    }
+
+The `ptree` parse tree type is JSON data, as defined in [pPEG].
+
 
 
 [pPEG]: https://github.com/pcanz/pPEG
-[dingus]: https://pcanz.github.io/pPEGjs/dingus.html
