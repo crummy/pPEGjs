@@ -3,11 +3,11 @@ import peg from '../pPEG.mjs'
 console.log("json grammar...");
 
 const json = peg.compile(`
-    json   = " " value " "
+    json   = _ value _
     value  =  Str / Arr / Obj / num / lit
-    Obj    = "{ " (memb (" , " memb)*)? " }"
-    memb   = Str " : " value
-    Arr    = "[ " (value (" , " value)*)? " ]"
+    Obj    = '{' _ (memb (',' _ memb)*)? _ '}'
+    memb   = Str _ ':' _ value _
+    Arr    = '[' _ (value (_ ',' _ value)*)? _ ']'
     Str    = '"' chars* '"'
     chars  = ~[\u0000-\u001F"\\]+ / '\\' esc
     esc    = ["\\/bfnrt] / 'u' [0-9a-fA-F]*4
@@ -15,7 +15,8 @@ const json = peg.compile(`
     _int   = '-'? ([1-9] [0-9]* / '0')
     _frac  = '.' [0-9]+
     _exp   = [eE] [+-]? [0-9]+
-    lit    = "true" / "false" / "null"
+    lit    = 'true' / 'false' / 'null'
+    _      = [ \t\n\r]*
 `);
 
 // Obj Arr Str need to be caps (they can be empty)

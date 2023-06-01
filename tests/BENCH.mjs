@@ -1,14 +1,14 @@
 import peg from '../pPEG.mjs'
 
 const pPEG_grammar = `
-    Peg   = " " (rule " ")+
-    rule  = id " = " alt
+    Peg   = _ rule+
+    rule  = id _ '=' _ alt
 
-    alt   = seq (" / " seq)*
-    seq   = rep (" " rep)*
-    rep   = pre sfx?
+    alt   = seq ('/' _ seq)*
+    seq   = rep+
+    rep   = pre sfx? _
     pre   = pfx? term
-    term  = call / sq / dq / chs / group / extn
+    term  = call / sq / chs / group / extn
 
     id    = [a-zA-Z_] [a-zA-Z0-9_]*
     pfx   = [&!~]
@@ -17,25 +17,24 @@ const pPEG_grammar = `
     num   = [0-9]+
     dots  = '..'
 
-    call  = id !" ="
-    sq    = "'" ~"'"* "'" 'i'?
-    dq    = '"' ~'"'* '"' 'i'?
+    call  = id _ !'='
+    sq    = ['] ~[']* ['] 'i'?
     chs   = '[' ~']'* ']'
-    group = "( " alt " )"
+    group = '(' _ alt ')'
     extn  = '<' ~'>'* '>'
 
-    _space_ = ('#' ~[\n\r]* / [ \t\n\r]+)*
+    _     = ('#' ~[\n\r]* / [ \t\n\r]+)*
 `;
 
 function test(times) {
     for (let i=0; i<times; i+=1) {
-        peg.compile(`
-        date  = year '-' month '-' day
-        year  = [0-9]+
-        month = [0-9]+
-        day   = [0-9]+
-        `)
-        // peg.compile(pPEG_grammar)
+        // peg.compile(`
+        // date  = year '-' month '-' day
+        // year  = [0-9]+
+        // month = [0-9]+
+        // day   = [0-9]+
+        // `)
+        peg.compile(pPEG_grammar)
     }
 }
 
@@ -50,5 +49,8 @@ console.timeEnd(tests)
     iMac M1
     0.092 ms to compile(pPEG_grammar)
     0.013 ms to compile(date)
+
+    MacBook Air M2
+    0.063 ms pPEG (new grammar, no double quotes)
 
 */

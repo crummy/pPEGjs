@@ -28,13 +28,13 @@ Each step has a code file that can be run with Node.js.
 ####  Step 4:     [Machine-4]
 
     Parser for pPEG boot grammar
-    full 8-instruction parser machine,
+    7-instruction parser machine,
     150 LOC parser machine
 
 ####  Step 5:     [Machine-5]
 
     Parser for full pPEG grammar, 
-    8-instruction parser machine,
+    7-instruction parser machine,
     parser_code from pPEG ptree,
     export grammar compile API
     200 LOC parser machine        

@@ -14,7 +14,7 @@ const test = peg.compile(`
     line    = name command message nl
     message = (emoji / link / color / Mention / word / space)+
     name    = word space
-    command = ("says" / "shouts") ": "
+    command = ('says' / 'shouts') ':' _
     emoji   = ':' '-'? (')'/'(')
     link    = '[' text ']' '(' text ')'
     color   = '/' word '/' message '/'
@@ -25,6 +25,7 @@ const test = peg.compile(`
     text    = ~(')' / '/')+
     nl      = '\n' '\r'? / '\r'
     eof     = !(~[])
+    _       = [ \t\n\r]*
 `);
 
 const p = test.parse("John says: Hello @michael this will work\n");

@@ -2,47 +2,48 @@
 /*
     Step 4: 
     pPEG boot grammar, 
-    8-instruction parser machine,
+    7-instruction parser machine,
+
+    seq is restricted to a single line (only space separators)
+    alts could use multi-lines, but only single line rules are needed here.
 */
 
 const boot_grammar = `
-    Peg   = " " (rule " ")+
-    rule  = id " = " alt
+    Peg   = _ rule+
+    rule  = id _ '=' _ alt
 
-    alt   = seq (" / " seq)*
-    seq   = rep (' ' rep)*
-    rep   = pre sfx?
+    alt   = seq ('/' _ seq)*
+    seq   = rep+ _
+    rep   = pre sfx? ' '*
     pre   = pfx? term
-    term  = id / sq / dq / chs / group
+    term  = id / sq / chs / group
 
-    id    = [a-zA-Z]+
+    id    = [a-zA-Z_]+
     pfx   = [&!~]
     sfx   = [+?*]
 
-    sq    = "'" ~"'"* "'"
-    dq    = '"' ~'"'* '"'
+    sq    = ['] ~[']* [']
     chs   = '[' ~']'* ']'
-    group = "( " alt " )"
+    group = '(' _ alt ')'
+    _     = [ \t\n\r]*
 `;
 
 const boot_code = {
     "Peg":
-        ["seq",[["dq","\" \""], ["rep",[
-            ["seq",[["id","rule"], ["dq","\" \""]]], ["sfx","+"]]]]],
+        ["seq",[["id","_"], ["rep",[["id","rule"], ["sfx","+"]]]]],
     "rule":
-        ["seq",[["id","id"],["dq","\" = \""],["id","alt"]]],
+        ["seq",[["id","id"],["id","_"],["sq","'='"],["id","_"],["id","alt"]]],
     "alt":
         ["seq",[["id","seq"],
-            ["rep",[["seq",[["dq","\" / \""],["id","seq"]]],["sfx","*"]]]]],
+           ["rep",[["seq",[["sq","'/'"],["id","_"],["id","seq"]]],["sfx","*"]]]]],
     "seq":
-        ["seq",[["id","rep"],
-            ["rep",[["seq",[["sq","' '"],["id","rep"]]],["sfx","*"]]]]],
+        ["seq",[["rep",[["id","rep"],["sfx","+"]]],["id","_"]]],
     "rep":
-        ["seq",[["id","pre"],["rep",[["id","sfx"],["sfx","?"]]]]],
+        ["seq",[["id","pre"],["rep",[["id","sfx"],["sfx","?"]]],["rep",[["sq","' '"],["sfx","*"]]]]],
     "pre":
         ["seq",[["rep",[["id","pfx"],["sfx","?"]]],["id","term"]]],
     "term":
-        ["alt",[["id","id"],["id","sq"],["id","dq"],["id","chs"],["id","group"]]],
+        ["alt",[["id","id"],["id","sq"],["id","chs"],["id","group"]]],
     "id":
         ["rep",[["chs","[a-zA-Z_]"],["sfx","+"]]],
     "pfx":
@@ -50,19 +51,17 @@ const boot_code = {
     "sfx":
         ["chs","[+?*]"],
     "sq":
-        ["seq",[["dq","\"'\""],
-            ["rep",[["pre",[["pfx","~"],["dq","\"'\""]]],["sfx","*"]]],
-            ["dq","\"'\""]]],
-    "dq":
-        ["seq",[["sq","'\"'"],
-            ["rep",[["pre",[["pfx","~"],["sq","'\"'"]]],["sfx","*"]]],
-            ["sq","'\"'"]]],
+        ["seq",[["chs","[']"],
+            ["rep",[["pre",[["pfx","~"],["chs","[']"]]],["sfx","*"]]],
+            ["chs","[']"]]],
     "chs":
         ["seq",[["sq","'['"],
             ["rep",[["pre",[["pfx","~"],["sq","']'"]]],["sfx","*"]]],
             ["sq","']'"]]],
     "group":
-        ["seq",[["dq","\"( \""],["id","alt"],["dq","\" )\""]]],
+        ["seq",[["sq","'('"],["id","_"],["id","alt"],["sq","')'"]]],
+    "_":
+        ["rep",[["chs","[ \t\n\r]"],["sfx","*"]]],
     "$start":
         ["id", "Peg"]
 }; 
@@ -92,6 +91,7 @@ function eval(exp, env) {
         const result = eval(expr, env);
         if (!result) return false;
         if (env.tree.length === stack) { // terminal string value..
+            if (name[0] === "_") return true;
             env.tree.push([name, env.input.slice(start, env.pos)]);
             return true; // => (name, "matched..")
         }
@@ -131,23 +131,6 @@ function eval(exp, env) {
         let pos = env.pos;
         for (let i=1; i < txt.length-1; i+=1) {
             if (txt[i] !== input[pos]) return false;
-            pos += 1;
-        }
-        env.pos = pos;
-        return true;
-    }
-
-    case "dq": { // (dq '"txt.."')
-        const input = env.input, txt = exp[1];
-        let pos = env.pos;
-        for (let i=1; i < txt.length-1; i+=1) {
-            const c = txt[i];
-            if (!c) return false;
-            if (c === ' ') {
-                while (input[pos] <= ' ') pos += 1;
-                continue;
-            }
-            if (c !== input[pos]) return false;
             pos += 1;
         }
         env.pos = pos;
@@ -225,8 +208,54 @@ function eval(exp, env) {
     } // switch
 }
 
+const date_grammar = `
+    date  = year '-' month '-' day 
+    year  = [0-9]+ 
+    month = [0-9]+ 
+    day   = [0-9]+ 
+`;
+
+console.log( JSON.stringify(parse(boot_code, date_grammar)) ); 
+
+/* ptree ==>
+
+["Peg",[
+    ["rule",[["id","date"],
+        ["seq",[["id","year"],["sq","'-'"],["id","month"],["sq","'-'"],["id","day"]]]]],
+    ["rule",[["id","year"],
+        ["rep",[["chs","[0-9]"],["sfx","+"]]]]],
+    ["rule",[["id","month"],
+        ["rep",[["chs","[0-9]"],["sfx","+"]]]]],
+    ["rule",[["id","day"],["rep",[["chs","[0-9]"],["sfx","+"]]]]]]]
+*/
+
 console.log( JSON.stringify(parse(boot_code, boot_grammar)) ); 
 
 /* ptree ==>
-["Peg",[["rule",[["id","Peg"],["seq",[["dq","\" \""],["rep",[["seq",[["id","rule"],["dq","\" \""]]],["sfx","+"]]]]]]],["rule",[["id","rule"],["seq",[["id","id"],["dq","\" = \""],["id","alt"]]]]],["rule",[["id","alt"],["seq",[["id","seq"],["rep",[["seq",[["dq","\" / \""],["id","seq"]]],["sfx","*"]]]]]]],["rule",[["id","seq"],["seq",[["id","rep"],["rep",[["seq",[["sq","' '"],["id","rep"]]],["sfx","*"]]]]]]],["rule",[["id","rep"],["seq",[["id","pre"],["rep",[["id","sfx"],["sfx","?"]]]]]]],["rule",[["id","pre"],["seq",[["rep",[["id","pfx"],["sfx","?"]]],["id","term"]]]]],["rule",[["id","term"],["alt",[["id","id"],["id","sq"],["id","dq"],["id","chs"],["id","group"]]]]],["rule",[["id","id"],["rep",[["chs","[a-zA-Z]"],["sfx","+"]]]]],["rule",[["id","pfx"],["chs","[&!~]"]]],["rule",[["id","sfx"],["chs","[+?*]"]]],["rule",[["id","sq"],["seq",[["dq","\"'\""],["rep",[["pre",[["pfx","~"],["dq","\"'\""]]],["sfx","*"]]],["dq","\"'\""]]]]],["rule",[["id","dq"],["seq",[["sq","'\"'"],["rep",[["pre",[["pfx","~"],["sq","'\"'"]]],["sfx","*"]]],["sq","'\"'"]]]]],["rule",[["id","chs"],["seq",[["sq","'['"],["rep",[["pre",[["pfx","~"],["sq","']'"]]],["sfx","*"]]],["sq","']'"]]]]],["rule",[["id","group"],["seq",[["dq","\"( \""],["id","alt"],["dq","\" )\""]]]]]]]
+
+["Peg",[
+    ["rule",[["id","Peg"],
+        ["seq",[["id","_"],["rep",[["id","rule"],["sfx","+"]]],["id","_"]]]]],
+    ["rule",[["id","rule"],
+        ["seq",[["id","id"],["id","_"],["sq","'='"],["id","_"],["id","alt"],["id","_"]]]]],
+    ["rule",[["id","alt"],
+        ["seq",[["id","seq"],["rep",[["seq",[["sq","'/'"],["id","_"],["id","seq"]]],["sfx","*"]]]]]]],
+    ["rule",[["id","seq"],
+        ["rep",[["id","rep"],["sfx","+"]]]]],
+    ["rule",[["id","rep"],
+        ["seq",[["id","pre"],["rep",[["id","sfx"],["sfx","?"]]],["rep",[["sq","' '"],["sfx","*"]]]]]]],
+    ["rule",[["id","pre"],
+        ["seq",[["rep",[["id","pfx"],["sfx","?"]]],["id","term"]]]]],
+    ["rule",[["id","term"],
+        ["alt",[["id","id"],["id","sq"],["id","chs"],["id","group"]]]]],
+    ["rule",[["id","id"],
+        ["rep",[["chs","[a-zA-Z_]"],["sfx","+"]]]]],
+    ["rule",[["id","pfx"],["chs","[&!~]"]]],
+    ["rule",[["id","sfx"],["chs","[+?*]"]]],
+    ["rule",[["id","sq"],
+        ["seq",[["chs","[']"],["rep",[["pre",[["pfx","~"],["chs","[']"]]],["sfx","*"]]],["chs","[']"]]]]],
+    ["rule",[["id","chs"],
+        ["seq",[["sq","'['"],["rep",[["pre",[["pfx","~"],["sq","']'"]]],["sfx","*"]]],["sq","']'"]]]]],
+    ["rule",[["id","group"],["seq",[["sq","'('"],["id","_"],["id","alt"],["sq","')'"]]]]],
+    ["rule",[["id","_"],["rep",[["chs","[ \t\n\r]"],["sfx","*"]]]]]]]
 */

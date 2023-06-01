@@ -1,20 +1,20 @@
 /*
     Step 5: 
     full pPEG grammar, 
-    8-instruction parser machine,
+    7-instruction parser machine,
     parser_code from pPEG ptree,
     export grammar compile API
 */
 
 const pPEG_grammar = `
-    Peg   = " " (rule " ")+
-    rule  = id " = " alt
+    Peg   = _ rule+
+    rule  = id _ '=' _ alt
 
-    alt   = seq (" / " seq)*
-    seq   = rep (" " rep)*
-    rep   = pre sfx?
+    alt   = seq ('/' _ seq)*
+    seq   = rep+
+    rep   = pre sfx? _
     pre   = pfx? term
-    term  = call / sq / dq / chs / group / extn
+    term  = call / sq / chs / group / extn
 
     id    = [a-zA-Z_] [a-zA-Z0-9_]*
     pfx   = [&!~]
@@ -23,39 +23,44 @@ const pPEG_grammar = `
     num   = [0-9]+
     dots  = '..'
 
-    call  = id !" ="
-    sq    = "'" ~"'"* "'" 'i'?
-    dq    = '"' ~'"'* '"' 'i'?
+    call  = id _ !'='
+    sq    = ['] ~[']* [']
     chs   = '[' ~']'* ']'
-    group = "( " alt " )"
+    group = '(' _ alt ')'
     extn  = '<' ~'>'* '>'
-
-    _space_ = ('#' ~[\n\r]* / [ \t\n\r]*)*
+    _     = ('#' ~[\n\r]* / [ \t\n\r]*)*
 `;
 
-const boot_ptree = 
-["Peg",[
-    ["rule",[["id","Peg"],["seq",[["dq","\" \""],["rep",[["seq",[["id","rule"],["dq","\" \""]]],
-        ["sfx","+"]]]]]]],
-    ["rule",[["id","rule"],["seq",[["id","id"],["dq","\" = \""],["id","alt"]]]]],
-    ["rule",[["id","alt"],["seq",[["id","seq"],["rep",[["seq",[["dq","\" / \""],["id","seq"]]],
-        ["sfx","*"]]]]]]],
-    ["rule",[["id","seq"],["seq",[["id","rep"],["rep",[["seq",[["sq","' '"],["id","rep"]]],
-        ["sfx","*"]]]]]]],
-    ["rule",[["id","rep"],["seq",[["id","pre"],["rep",[["id","sfx"],["sfx","?"]]]]]]],
-    ["rule",[["id","pre"],["seq",[["rep",[["id","pfx"],["sfx","?"]]],["id","term"]]]]],
-    ["rule",[["id","term"],["alt",[["id","id"],["id","sq"],["id","dq"],["id","chs"],["id","group"]]]]],
-    ["rule",[["id","id"],["rep",[["chs","[a-zA-Z_]"],["sfx","+"]]]]],
-    ["rule",[["id","pfx"],["chs","[&!~]"]]],["rule",[["id","sfx"],["chs","[+?*]"]]],
-    ["rule",[["id","sq"],["seq",[["dq","\"'\""],["rep",[["pre",[["pfx","~"],["dq","\"'\""]]],
-        ["sfx","*"]]],["dq","\"'\""]]]]],
-    ["rule",[["id","dq"],["seq",[["sq","'\"'"],["rep",[["pre",[["pfx","~"],["sq","'\"'"]]],
-        ["sfx","*"]]],["sq","'\"'"]]]]],
-    ["rule",[["id","chs"],["seq",[["sq","'['"],["rep",[["pre",[["pfx","~"],["sq","']'"]]],
-        ["sfx","*"]]],["sq","']'"]]]]],
-    ["rule",[["id","group"],["seq",[["dq","\"( \""],["id","alt"],["dq","\" )\""]]]]]]]
+const boot_ptree = ["Peg",[  // copied from machine-4.js output...
+    ["rule",[["id","Peg"],
+        ["seq",[["id","_"],["rep",[["id","rule"],["sfx","+"]]]]]]],
+    ["rule",[["id","rule"],
+        ["seq",[["id","id"],["id","_"],["sq","'='"],["id","_"],["id","alt"]]]]],
+    ["rule",[["id","alt"],
+        ["seq",[["id","seq"],["rep",[["seq",[["sq","'/'"],["id","_"],["id","seq"]]],["sfx","*"]]]]]]],
+    ["rule",[["id","seq"],
+        ["seq",[["rep",[["id","rep"],["sfx","+"]]],["id","_"]]]]],
+    ["rule",[["id","rep"],
+        ["seq",[["id","pre"],["rep",[["id","sfx"],["sfx","?"]]],["rep",[["sq","' '"],["sfx","*"]]]]]]],
+    ["rule",[["id","pre"],
+        ["seq",[["rep",[["id","pfx"],["sfx","?"]]],["id","term"]]]]],
+    ["rule",[["id","term"],
+        ["alt",[["id","id"],["id","sq"],["id","chs"],["id","group"]]]]],
+    ["rule",[["id","id"],
+        ["rep",[["chs","[a-zA-Z_]"],["sfx","+"]]]]],
+    ["rule",[["id","pfx"],["chs","[&!~]"]]],
+    ["rule",[["id","sfx"],["chs","[+?*]"]]],
+    ["rule",[["id","sq"],
+        ["seq",[["chs","[']"],["rep",[["pre",[["pfx","~"],["chs","[']"]]],["sfx","*"]]],["chs","[']"]]]]],
+    ["rule",[["id","chs"],
+        ["seq",[["sq","'['"],["rep",[["pre",[["pfx","~"],["sq","']'"]]],["sfx","*"]]],["sq","']'"]]]]],
+    ["rule",[["id","group"],
+        ["seq",[["sq","'('"],["id","_"],["id","alt"],["sq","')'"]]]]],
+    ["rule",[["id","_"],
+        ["rep",[["chs","[ \t\n\r]"],["sfx","*"]]]]]]];
 
 const boot_code = parser_code(boot_ptree);
+// console.log("boot_code=\n",JSON.stringify(boot_code));
 
 function parser_code(ptree) { // for simple interpreter code
     let code = {};
@@ -80,8 +85,10 @@ function parse(grammar_code, input) {
     return env.tree[0]; // ptree result
 }
 
+var TRACE = false;
+
 function eval(exp, env) {
-    // console.log(exp);
+    if (TRACE) console.log("pos=", env.pos, exp);
     switch (exp[0]) {
 
     case "id": { // (id name)
@@ -93,6 +100,7 @@ function eval(exp, env) {
         const result = eval(expr, env);
         if (!result) return false;
         if (env.tree.length === stack) { // terminal string value..
+            if (name === "_") return true;
             env.tree.push([name, env.input.slice(start, env.pos)]);
             return true; // => (name, "matched..")
         }
@@ -132,23 +140,6 @@ function eval(exp, env) {
         let pos = env.pos;
         for (let i=1; i < txt.length-1; i+=1) {
             if (txt[i] !== input[pos]) return false;
-            pos += 1;
-        }
-        env.pos = pos;
-        return true;
-    }
-
-    case "dq": { // (dq '"txt.."')
-        const input = env.input, txt = exp[1];
-        let pos = env.pos;
-        for (let i=1; i < txt.length-1; i+=1) {
-            const c = txt[i];
-            if (!c) return false;
-            if (c === ' ') {
-                while (input[pos] <= ' ') pos += 1;
-                continue;
-            }
-            if (c !== input[pos]) return false;
             pos += 1;
         }
         env.pos = pos;
@@ -228,10 +219,20 @@ function eval(exp, env) {
 
 // compile pPEG with boot_code...
 
+const date_grammar = `
+    date  = year '-' month '-' day 
+    year  = [0-9]+ 
+    month = [0-9]+ 
+    day   = [0-9]+ 
+`;
+
+const date_ptree_boot = parse(boot_code, date_grammar);
+// console.log("date_ptree_boot=",date_ptree_boot);
+
 const pPEG_ptree_boot = parse(boot_code, pPEG_grammar);
+// console.log("pPEG_ptree_boot=",pPEG_ptree_boot);
 
 const pPEG_code = parser_code(pPEG_ptree_boot);
-
 // console.log( JSON.stringify(pPEG_code) );
 
 // compile pPEG with pPEG and check it is the same....
@@ -240,7 +241,9 @@ const pPEG_ptree = parse(pPEG_code, pPEG_grammar);
 
 const pPEG_code_chk = parser_code(pPEG_ptree);
 
-// console.log( JSON.stringify(pPEG_code_chk) );
+console.log("pPJEG_code_chk=\n", JSON.stringify(pPEG_code_chk) );
+
+// -- API ------------------------------------------------------------
 
 exports.compile = function compile(grammar) {
     const pegtree = parse(pPEG_code, grammar);
@@ -254,4 +257,3 @@ exports.compile = function compile(grammar) {
         parse: parser,
     };
 }
-

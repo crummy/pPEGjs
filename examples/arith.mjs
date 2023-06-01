@@ -10,9 +10,10 @@ const arith = peg.compile(`
   div = pow ('/' pow)*
   pow = val ('^' val)*
   grp = '(' exp ')'
-  val = " " (sym / num / grp) " "
+  val = _ (sym / num / grp) _
   sym = [a-zA-Z]+
   num = [0-9]+
+  _   = [ \t\n\r]*
 `);
 
 const tests = [

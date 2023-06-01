@@ -11,8 +11,29 @@ import readline from 'readline-sync';
           test2.txt   // test cases
           ...
           test-records/
-                      test1.txt-record  // previous resuts 
+                      test1.txt-record  // previous results 
                       ...
+
+The test-xxx.txt files contain test cases:
+
+* first a grammar (test case), followed by '--' (2) then
+* one or more test input txt to be parsed, separated by '--' (2).
+* a '---' (3) introduces the next test case grammar, and so on...
+
+This RUN.mjs reads all tests in all test-xxx.txt files, compiles each pPEG
+test case grammar, and parses the following '--' separated test input.
+
+If the result for file: test-xxx.txt exactly matches a previous file: 
+    test-records/text-xxx.txt.record
+then OK is reported (the record is a previously checked and accepted result).
+
+If there is a mismatch (or no previous record file) then a result file is written:
+    test-records/text-xxx.txt.result
+The diff between this result file and the record file will be shown.
+
+A Yes/No console query will ask if the result should be accepted and written
+as the new record file.
+
 */
 
 // let files = fs.readdirSync(__dirname); // .../tests/

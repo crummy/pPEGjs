@@ -1,12 +1,12 @@
 --- test-2-pPEG.txt case:1
-    Peg   = " " (rule " ")+
-    rule  = id " = " alt
+    Peg   = _ rule+ _
+    rule  = id _ '=' _ alt
 
-    alt   = seq (" / " seq)*
-    seq   = rep (" " rep)*
-    rep   = pre sfx?
+    alt   = seq ('/' _ seq)*
+    seq   = rep+
+    rep   = pre sfx? _
     pre   = pfx? term
-    term  = call / sq / dq / chs / group / extn
+    term  = call / sq / chs / group / extn
 
     id    = [a-zA-Z_] [a-zA-Z0-9_]*
     pfx   = [&!~]
@@ -15,23 +15,21 @@
     num   = [0-9]+
     dots  = '..'
 
-    call  = id !" ="
-    sq    = "'" ~"'"* "'" 'i'?
-    dq    = '"' ~'"'* '"' 'i'?
+    call  = id _ !'='
+    sq    = ['] ~[']* [']
     chs   = '[' ~']'* ']'
-    group = "( " alt " )"
+    group = '(' _ alt ')'
     extn  = '<' ~'>'* '>'
-
-    _space_ = ('#' ~[\n\r]* / [ \t\n\r]*)*
+    _     = ('#' ~[\n\r]* / [ \t\n\r]*)*
 --  test-2-pPEG.txt case:1 input:1
-    Peg   = " " (rule " ")+
-    rule  = id " = " alt
+    Peg   = _ rule+ _
+    rule  = id _ '=' _ alt
 
-    alt   = seq (" / " seq)*
-    seq   = rep (" " rep)*
-    rep   = pre sfx?
+    alt   = seq ('/' _ seq)*
+    seq   = rep+
+    rep   = pre sfx? _
     pre   = pfx? term
-    term  = call / sq / dq / chs / group / extn
+    term  = call / sq / chs / group / extn
 
     id    = [a-zA-Z_] [a-zA-Z0-9_]*
     pfx   = [&!~]
@@ -40,13 +38,11 @@
     num   = [0-9]+
     dots  = '..'
 
-    call  = id !" ="
-    sq    = "'" ~"'"* "'" 'i'?
-    dq    = '"' ~'"'* '"' 'i'?
+    call  = id _ !'='
+    sq    = ['] ~[']* [']
     chs   = '[' ~']'* ']'
-    group = "( " alt " )"
+    group = '(' _ alt ')'
     extn  = '<' ~'>'* '>'
-
-    _space_ = ('#' ~[\n\r]* / [ \t\n\r]*)*
+    _     = ('#' ~[\n\r]* / [ \t\n\r]*)*
 -
-["Peg",[["rule",[["id","Peg"],["seq",[["dq","\" \""],["rep",[["seq",[["id","rule"],["dq","\" \""]]],["sfx","+"]]]]]]],["rule",[["id","rule"],["seq",[["id","id"],["dq","\" = \""],["id","alt"]]]]],["rule",[["id","alt"],["seq",[["id","seq"],["rep",[["seq",[["dq","\" / \""],["id","seq"]]],["sfx","*"]]]]]]],["rule",[["id","seq"],["seq",[["id","rep"],["rep",[["seq",[["dq","\" \""],["id","rep"]]],["sfx","*"]]]]]]],["rule",[["id","rep"],["seq",[["id","pre"],["rep",[["id","sfx"],["sfx","?"]]]]]]],["rule",[["id","pre"],["seq",[["rep",[["id","pfx"],["sfx","?"]]],["id","term"]]]]],["rule",[["id","term"],["alt",[["id","call"],["id","sq"],["id","dq"],["id","chs"],["id","group"],["id","extn"]]]]],["rule",[["id","id"],["seq",[["chs","[a-zA-Z_]"],["rep",[["chs","[a-zA-Z0-9_]"],["sfx","*"]]]]]]],["rule",[["id","pfx"],["chs","[&!~]"]]],["rule",[["id","sfx"],["alt",[["chs","[+?]"],["seq",[["sq","'*'"],["rep",[["id","range"],["sfx","?"]]]]]]]]],["rule",[["id","range"],["seq",[["id","num"],["rep",[["seq",[["id","dots"],["rep",[["id","num"],["sfx","?"]]]]],["sfx","?"]]]]]]],["rule",[["id","num"],["rep",[["chs","[0-9]"],["sfx","+"]]]]],["rule",[["id","dots"],["sq","'..'"]]],["rule",[["id","call"],["seq",[["id","id"],["pre",[["pfx","!"],["dq","\" =\""]]]]]]],["rule",[["id","sq"],["seq",[["dq","\"'\""],["rep",[["pre",[["pfx","~"],["dq","\"'\""]]],["sfx","*"]]],["dq","\"'\""],["rep",[["sq","'i'"],["sfx","?"]]]]]]],["rule",[["id","dq"],["seq",[["sq","'\"'"],["rep",[["pre",[["pfx","~"],["sq","'\"'"]]],["sfx","*"]]],["sq","'\"'"],["rep",[["sq","'i'"],["sfx","?"]]]]]]],["rule",[["id","chs"],["seq",[["sq","'['"],["rep",[["pre",[["pfx","~"],["sq","']'"]]],["sfx","*"]]],["sq","']'"]]]]],["rule",[["id","group"],["seq",[["dq","\"( \""],["id","alt"],["dq","\" )\""]]]]],["rule",[["id","extn"],["seq",[["sq","'<'"],["rep",[["pre",[["pfx","~"],["sq","'>'"]]],["sfx","*"]]],["sq","'>'"]]]]],["rule",[["id","_space_"],["rep",[["alt",[["seq",[["sq","'#'"],["rep",[["pre",[["pfx","~"],["chs","[\\n\\r]"]]],["sfx","*"]]]]],["rep",[["chs","[ \\t\\n\\r]"],["sfx","*"]]]]],["sfx","*"]]]]]]]
+["Peg",[["rule",[["id","Peg"],["seq",[["id","_"],["rep",[["id","rule"],["sfx","+"]]],["id","_"]]]]],["rule",[["id","rule"],["seq",[["id","id"],["id","_"],["sq","'='"],["id","_"],["id","alt"]]]]],["rule",[["id","alt"],["seq",[["id","seq"],["rep",[["seq",[["sq","'/'"],["id","_"],["id","seq"]]],["sfx","*"]]]]]]],["rule",[["id","seq"],["rep",[["id","rep"],["sfx","+"]]]]],["rule",[["id","rep"],["seq",[["id","pre"],["rep",[["id","sfx"],["sfx","?"]]],["id","_"]]]]],["rule",[["id","pre"],["seq",[["rep",[["id","pfx"],["sfx","?"]]],["id","term"]]]]],["rule",[["id","term"],["alt",[["id","call"],["id","sq"],["id","chs"],["id","group"],["id","extn"]]]]],["rule",[["id","id"],["seq",[["chs","[a-zA-Z_]"],["rep",[["chs","[a-zA-Z0-9_]"],["sfx","*"]]]]]]],["rule",[["id","pfx"],["chs","[&!~]"]]],["rule",[["id","sfx"],["alt",[["chs","[+?]"],["seq",[["sq","'*'"],["rep",[["id","range"],["sfx","?"]]]]]]]]],["rule",[["id","range"],["seq",[["id","num"],["rep",[["seq",[["id","dots"],["rep",[["id","num"],["sfx","?"]]]]],["sfx","?"]]]]]]],["rule",[["id","num"],["rep",[["chs","[0-9]"],["sfx","+"]]]]],["rule",[["id","dots"],["sq","'..'"]]],["rule",[["id","call"],["seq",[["id","id"],["id","_"],["pre",[["pfx","!"],["sq","'='"]]]]]]],["rule",[["id","sq"],["seq",[["chs","[']"],["rep",[["pre",[["pfx","~"],["chs","[']"]]],["sfx","*"]]],["chs","[']"]]]]],["rule",[["id","chs"],["seq",[["sq","'['"],["rep",[["pre",[["pfx","~"],["sq","']'"]]],["sfx","*"]]],["sq","']'"]]]]],["rule",[["id","group"],["seq",[["sq","'('"],["id","_"],["id","alt"],["sq","')'"]]]]],["rule",[["id","extn"],["seq",[["sq","'<'"],["rep",[["pre",[["pfx","~"],["sq","'>'"]]],["sfx","*"]]],["sq","'>'"]]]]],["rule",[["id","_"],["rep",[["alt",[["seq",[["sq","'#'"],["rep",[["pre",[["pfx","~"],["chs","[\\n\\r]"]]],["sfx","*"]]]]],["rep",[["chs","[ \\t\\n\\r]"],["sfx","*"]]]]],["sfx","*"]]]]]]]

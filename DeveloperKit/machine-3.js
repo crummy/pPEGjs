@@ -39,7 +39,7 @@ function parse(grammar_code, input) {
 }
 
 function eval(exp, env) {
-    console.log(exp);
+    // console.log(exp);
     switch (exp[0]) {
 
     case "id": { // (id name)
@@ -95,23 +95,6 @@ function eval(exp, env) {
         env.pos = pos;
         return true;
     }
-
-    case "dq": { // (dq '"txt.."')
-        const input = env.input, txt = exp[1];
-        let pos = env.pos;
-        for (let i=1; i < txt.length-1; i+=1) {
-            const c = txt[i];
-            if (!c) return false;
-            if (c === ' ') {
-                while (isWhiteSpace(input[pos])) pos += 1;
-                continue;
-            }
-            if (c !== input[pos]) return false;
-            pos += 1;
-        }
-        env.pos = pos;
-        return true;
-    }
     
     case "chs": { // (chs, "[str..]"]
         const str = exp[1];
@@ -119,7 +102,7 @@ function eval(exp, env) {
         for (let i = 1; i < str.length-1; i += 1) {
             const ch = env.input[pos];
             if (!ch) return false;
-            console.log(str, i, ch)
+            // console.log(str, i, ch)
             if (i+2 < str.length-1 && str[i+1] == '-') {
                 if (ch < str[i] || ch > str[i+2]) {
                     i += 2;
@@ -141,7 +124,7 @@ function eval(exp, env) {
         let min = 0, max = 0; // sfx === "*"
         if (sfx === "+") min = 1;
         else if (sfx === "?") max = 1;
-        console.log('rep', min, max)
+        // console.log('rep', min, max)
         let count = 0, pos = env.pos;
         while (true) { // min..max        
             const result = eval(expr, env);

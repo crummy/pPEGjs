@@ -1,9 +1,10 @@
     expr  = var (op var)*
-    op    = " " (op_1L / op_2L / op_3R) " "
+    op    = _ (op_1L / op_2L / op_3R) _
     var   = [a-zA-Z0-9]+
     op_1L = [-+]
     op_2L = [*/]
     op_3R = '^'
+    _     = [ \t\n\r]*
 --
 1+2*3
 --
@@ -12,11 +13,12 @@
 x^n^2+1
 ---
     expr  = var (op var)* <infix>
-    op    = " " (op_1L / op_2L / op_3R) " "
+    op    = _ (op_1L / op_2L / op_3R) _
     var   = [a-zA-Z0-9]+
     op_1L = [-+]
     op_2L = [*/]
     op_3R = '^'
+    _     = [ \t\n\r]*
 --
 1+2+3+4-5
 --
@@ -25,11 +27,12 @@ x^n^2+1
 x^n^2+1
 ---
     expr  = var (op var)*
-    op    = " " (op_1L / op_AL / op_aR) " "
+    op    = _ (op_1L / op_AL / op_aR) _
     var   = [a-zA-Z0-9]+
     op_1L = [-+]
     op_AL = [*/]
     op_aR = '^'
+    _     = [ \t\n\r]*
 --
 1+2*3
 --
@@ -38,11 +41,12 @@ x^n^2+1
 x^n^2+1
 ---
     expr  = var (op var)* <infix>
-    op    = " " (op_1L / op_AL / op_aR) " "
+    op    = _ (op_1L / op_AL / op_aR) _
     var   = [a-zA-Z0-9]+
     op_1L = [-+]
     op_AL = [*/]
     op_aR = '^'
+    _     = [ \t\n\r]*
 --
 1+2*3
 --
@@ -50,19 +54,20 @@ x^n^2+1
 --
 x^n^2+1
 ---
-    exp   = " " opx " "
+    exp   = _ opx _
     opx   = pre (op pre)* <infix>
     pre   = pfx? var
-    var   = val / id / "(" exp ")"
+    var   = val / id / '(' _ exp _ ')'
     val   = [0-9]+
     id    = [a-z]+
     pfx   = [-+]
-    op    = " " (op_1L/op_2L/op_4L/op_5L/op_3L) " "
+    op    = _ (op_1L/op_2L/op_4L/op_5L/op_3L) _
     op_1L = '||'
     op_2L = '&&'
     op_3L = '<'/'>'/'>='/'<='/'=='/'!='
     op_4L = [-+|^]
     op_5L = [*/%&]/'<<'/'>>'/'&^'
+    _     = [ \t\n\r]*
 --
 1+2*3
 --

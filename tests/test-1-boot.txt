@@ -1,39 +1,40 @@
 
-    Peg   = " " (rule " ")+
-    rule  = id " = " alt
-
-    alt   = seq (" / " seq)*
-    seq   = rep (' ' rep)*
-    rep   = pre sfx?
-    pre   = pfx? term
-    term  = id / sq / dq / chs / group
-
-    id    = [a-zA-Z_]+
-    pfx   = [&!~]
-    sfx   = [+?*]
-
-    sq    = "'" ~"'"* "'"
-    dq    = '"' ~'"'* '"'
-    chs   = '[' ~']'* ']'
-    group = "( " alt " )"
+    Peg   = _ rule+ _                         
+    rule  = id _ '=' _ alt                       
+                                                
+    alt   = seq ('/'_ seq)*                      
+    seq   = rep+                                 
+    rep   = pre sfx? _                           
+    pre   = pfx? term                            
+    term  = call / quote / chars / group
+    group = '('_ alt ')'                         
+                                                
+    call  = id _ !'='                 
+    id    = [a-zA-Z_]+                                                           
+    pfx   = [~!&]                                
+    sfx   = [+?*]                
+                                            
+    quote = ['] ~[']* [']                     
+    chars = '[' ~']'* ']'                          
+    _     = [ \t\n\r]*
 
 --
 
-    Peg   = " " (rule " ")+
-    rule  = id " = " alt
-
-    alt   = seq (" / " seq)*
-    seq   = rep (' ' rep)*
-    rep   = pre sfx?
-    pre   = pfx? term
-    term  = id / sq / dq / chs / group
-
-    id    = [a-zA-Z_]+
-    pfx   = [&!~]
-    sfx   = [+?*]
-
-    sq    = "'" ~"'"* "'"
-    dq    = '"' ~'"'* '"'
-    chs   = '[' ~']'* ']'
-    group = "( " alt " )"
-    
+    Peg   = _ rule+ _                         
+    rule  = id _ '=' _ alt                       
+                                                
+    alt   = seq ('/'_ seq)*                      
+    seq   = rep+                                 
+    rep   = pre sfx? _                           
+    pre   = pfx? term                            
+    term  = call / quote / chars / group
+    group = '('_ alt ')'                         
+                                                
+    call  = id _ !'='                 
+    id    = [a-zA-Z_]+                                                           
+    pfx   = [~!&]                                
+    sfx   = [+?*]                
+                                            
+    quote = ['] ~[']* [']                     
+    chars = '[' ~']'* ']'                          
+    _     = [ \t\n\r]*

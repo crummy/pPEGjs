@@ -1,10 +1,11 @@
 --- test-5-infix.txt case:1
     expr  = var (op var)*
-    op    = " " (op_1L / op_2L / op_3R) " "
+    op    = _ (op_1L / op_2L / op_3R) _
     var   = [a-zA-Z0-9]+
     op_1L = [-+]
     op_2L = [*/]
     op_3R = '^'
+    _     = [ \t\n\r]*
 --  test-5-infix.txt case:1 input:1
 1+2*3
 -
@@ -19,11 +20,12 @@ x^n^2+1
 ["expr",[["var","x"],["op_3R","^"],["var","n"],["op_3R","^"],["var","2"],["op_1L","+"],["var","1"]]]
 --- test-5-infix.txt case:2
     expr  = var (op var)* <infix>
-    op    = " " (op_1L / op_2L / op_3R) " "
+    op    = _ (op_1L / op_2L / op_3R) _
     var   = [a-zA-Z0-9]+
     op_1L = [-+]
     op_2L = [*/]
     op_3R = '^'
+    _     = [ \t\n\r]*
 --  test-5-infix.txt case:2 input:1
 1+2+3+4-5
 -
@@ -38,11 +40,12 @@ x^n^2+1
 ["+",[["^",[["var","x"],["^",[["var","n"],["var","2"]]]]],["var","1"]]]
 --- test-5-infix.txt case:3
     expr  = var (op var)*
-    op    = " " (op_1L / op_AL / op_aR) " "
+    op    = _ (op_1L / op_AL / op_aR) _
     var   = [a-zA-Z0-9]+
     op_1L = [-+]
     op_AL = [*/]
     op_aR = '^'
+    _     = [ \t\n\r]*
 --  test-5-infix.txt case:3 input:1
 1+2*3
 -
@@ -57,11 +60,12 @@ x^n^2+1
 ["expr",[["var","x"],["op_aR","^"],["var","n"],["op_aR","^"],["var","2"],["op_1L","+"],["var","1"]]]
 --- test-5-infix.txt case:4
     expr  = var (op var)* <infix>
-    op    = " " (op_1L / op_AL / op_aR) " "
+    op    = _ (op_1L / op_AL / op_aR) _
     var   = [a-zA-Z0-9]+
     op_1L = [-+]
     op_AL = [*/]
     op_aR = '^'
+    _     = [ \t\n\r]*
 --  test-5-infix.txt case:4 input:1
 1+2*3
 -
@@ -75,19 +79,20 @@ x^n^2+1
 -
 ["+",[["^",[["var","x"],["^",[["var","n"],["var","2"]]]]],["var","1"]]]
 --- test-5-infix.txt case:5
-    exp   = " " opx " "
+    exp   = _ opx _
     opx   = pre (op pre)* <infix>
     pre   = pfx? var
-    var   = val / id / "(" exp ")"
+    var   = val / id / '(' _ exp _ ')'
     val   = [0-9]+
     id    = [a-z]+
     pfx   = [-+]
-    op    = " " (op_1L/op_2L/op_4L/op_5L/op_3L) " "
+    op    = _ (op_1L/op_2L/op_4L/op_5L/op_3L) _
     op_1L = '||'
     op_2L = '&&'
     op_3L = '<'/'>'/'>='/'<='/'=='/'!='
     op_4L = [-+|^]
     op_5L = [*/%&]/'<<'/'>>'/'&^'
+    _     = [ \t\n\r]*
 --  test-5-infix.txt case:5 input:1
 1+2*3
 -

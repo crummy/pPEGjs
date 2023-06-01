@@ -7,14 +7,14 @@
 */
 
 const pPEG_grammar = `
-    Peg   = " " (rule " ")+
-    rule  = id " = " alt
+    Peg   = _ rule+
+    rule  = id _ '=' _ alt
 
-    alt   = seq (" / " seq)*
-    seq   = rep (" " rep)*
-    rep   = pre sfx?
+    alt   = seq ('/' _ seq)*
+    seq   = rep+
+    rep   = pre sfx? _
     pre   = pfx? term
-    term  = call / sq / dq / chs / group / extn
+    term  = call / sq / chs / group / extn
 
     id    = [a-zA-Z_] [a-zA-Z0-9_]*
     pfx   = [&!~]
@@ -23,31 +23,29 @@ const pPEG_grammar = `
     num   = [0-9]+
     dots  = '..'
 
-    call  = id !" ="
-    sq    = "'" ~"'"* "'" 'i'?
-    dq    = '"' ~'"'* '"' 'i'?
+    call  = id _ !'='
+    sq    = ['] ~[']* [']
     chs   = '[' ~']'* ']'
-    group = "( " alt " )"
+    group = '(' _ alt ')'
     extn  = '<' ~'>'* '>'
-
-    _space_ = ('#' ~[\n\r]* / [ \t\n\r]+)*
+    _     = ('#' ~[\n\r]* / [ \t\n\r]*)*
 `;
 
 const pPEG_rules =
 [["rule",[["id","Peg"],
-    ["seq",[["dq","\" \""],["rep",[["seq",[["id","rule"],["dq","\" \""]]],["sfx","+"]]]]]]],
+    ["seq",[["id","_"],["rep",[["id","rule"],["sfx","+"]]],["id","_"]]]]],
 ["rule",[["id","rule"],
-    ["seq",[["id","id"],["dq","\" = \""],["id","alt"]]]]],
+    ["seq",[["id","id"],["id","_"],["sq","'='"],["id","_"],["id","alt"]]]]],
 ["rule",[["id","alt"],
-    ["seq",[["id","seq"],["rep",[["seq",[["dq","\" / \""],["id","seq"]]],["sfx","*"]]]]]]],
+    ["seq",[["id","seq"],["rep",[["seq",[["sq","'/'"],["id","_"],["id","seq"]]],["sfx","*"]]]]]]],
 ["rule",[["id","seq"],
-    ["seq",[["id","rep"],["rep",[["seq",[["dq","\" \""],["id","rep"]]],["sfx","*"]]]]]]],
+    ["rep",[["id","rep"],["sfx","+"]]]]],
 ["rule",[["id","rep"],
-    ["seq",[["id","pre"],["rep",[["id","sfx"],["sfx","?"]]]]]]],
+    ["seq",[["id","pre"],["rep",[["id","sfx"],["sfx","?"]]],["id","_"]]]]],
 ["rule",[["id","pre"],
     ["seq",[["rep",[["id","pfx"],["sfx","?"]]],["id","term"]]]]],
 ["rule",[["id","term"],
-    ["alt",[["id","call"],["id","sq"],["id","dq"],["id","chs"],["id","group"],["id","extn"]]]]],
+    ["alt",[["id","call"],["id","sq"],["id","chs"],["id","group"],["id","extn"]]]]],
 ["rule",[["id","id"],
     ["seq",[["chs","[a-zA-Z_]"],
         ["rep",[["chs","[a-zA-Z0-9_]"],["sfx","*"]]]]]]],
@@ -63,22 +61,19 @@ const pPEG_rules =
 ["rule",[["id","dots"],
     ["sq","'..'"]]],
 ["rule",[["id","call"],
-    ["seq",[["id","id"],["pre",[["pfx","!"],["dq","\" =\""]]]]]]],
+    ["seq",[["id","id"],["id","_"],["pre",[["pfx","!"],["sq","'='"]]]]]]],
 ["rule",[["id","sq"],
-    ["seq",[["dq","\"'\""],["rep",[["pre",[["pfx","~"],["dq","\"'\""]]],
-        ["sfx","*"]]],["dq","\"'\""],["rep",[["sq","'i'"],["sfx","?"]]]]]]],
-["rule",[["id","dq"],
-    ["seq",[["sq","'\"'"],["rep",[["pre",[["pfx","~"],["sq","'\"'"]]],["sfx","*"]]],
-        ["sq","'\"'"],["rep",[["sq","'i'"],["sfx","?"]]]]]]],
+    ["seq",[["chs","[']"],["rep",[["pre",[["pfx","~"],["chs","[']"]]],
+        ["sfx","*"]]],["chs","[']"],["rep",[["sq","'i'"],["sfx","?"]]]]]]],
 ["rule",[["id","chs"],
     ["seq",[["sq","'['"],["rep",[["pre",[["pfx","~"],["sq","']'"]]],
         ["sfx","*"]]],["sq","']'"]]]]],
 ["rule",[["id","group"],
-    ["seq",[["dq","\"( \""],["id","alt"],["dq","\" )\""]]]]],
+    ["seq",[["sq","'('"],["id","_"],["id","alt"],["sq","')'"]]]]],
 ["rule",[["id","extn"],
     ["seq",[["sq","'<'"],["rep",[["pre",[["pfx","~"],["sq","'>'"]]],
         ["sfx","*"]]],["sq","'>'"]]]]],
-["rule",[["id","_space_"],
+["rule",[["id","_"],
     ["rep",[["alt",[["seq",[["sq","'#'"],["rep",[["pre",[["pfx","~"],["chs","[\n\r]"]]],
         ["sfx","*"]]]]],["rep",[["chs","[ \t\n\r]"],["sfx","*"]]]]],["sfx","*"]]]]]]
 ;
@@ -257,54 +252,14 @@ function SQ(exp, env) { // [SQ, icase, "..."]
     return true;
 }
 
-function DQ(exp, env) { // ["dq", icase, "..."]
-    const input = env.input, start = env.pos,
-            icase = exp[1],
-            str = exp[2], len = str.length;
-    let pos = env.pos;
-    if (len === 0) return true; // "" empty str
-    const space = env.codex.space; // _space_ rule exp
-    for (let i=0; i < len; i+=1) {
-        if (str[i] === " ") {
-            if (space) { // custom _space_ rule...
-                env.pos = pos;
-                space[0](space, env);  
-                pos = env.pos;
-            } else { // or default ....
-                const input = env.input, len = input.length;
-                while (pos < len) {
-                    const ch = input[pos];
-                    if (ch == " " || ch == "\n" || 
-                        ch == "\r" || ch == "\t") {
-                        pos += 1;
-                    } else break;
-                }
-            }
-            continue;
-        }
-        let char = input[pos]; // undefined if pos >= input.length
-        if (icase && pos < input.length) char = char.toUpperCase();  
-        if (str[i] !== char) {
-            // env.pos = start; // skip_space may have advanced
-            if (env.trace) trace_chars_fail(exp, env);
-            return false;
-        }
-        pos += 1;
-    }
-    env.pos = pos;
-    if (pos > env.peak) env.peak = pos;
-    if (env.trace) trace_chars_match(exp, env, start);
-    return true;
-}
-
 function CHS(exp, env) { // [CHS, neg, min, max, str]
     const input = env.input, start = env.pos;
     const [_, neg, min, max, str] = exp;
     let pos = env.pos, count = 0;
     while (pos < input.length) { // min..max
         let hit = false;
+        const ch = env.input[pos];
         for (let i = 0; i < str.length; i += 1) {
-            const ch = env.input[pos];
             if (i+2 < str.length && str[i+1] == '-') {
                 if (ch < str[i] || ch > str[i+2]) {
                     i += 2;
@@ -334,12 +289,12 @@ function CHS(exp, env) { // [CHS, neg, min, max, str]
 
 function EXTN(exp, env) { // [EXTN, "<xxx>"]
     const ext = exp[1].slice(1,-1).split(' ');
-    let key = ext[0], sigil = '';
-    for (let i=0; i<key.length; i+=1) {
-        if (key[i] >= 'A') break; // 0..@
-        sigil += key[i];
-    }
-    key = sigil || key;
+    let key = ext[0]; //, sigil = '';
+    // for (let i=0; i<key.length; i+=1) {
+    //     if (key[i] >= 'A') break; // 0..@
+    //     sigil += key[i];
+    // }
+    // key = sigil || key;
     const fn = env.extend[key] || builtin(key);
     if (!fn) {
         if (env.pos > env.fault_pos) {
@@ -364,7 +319,8 @@ function EXTN(exp, env) { // [EXTN, "<xxx>"]
 
 const builtins = {
     "?": trace_trigger,
-    "@": same_match,
+    "@": same_match, // deprecate
+    eq: same_match,
     infix,
     quote, quoter,
     indent: ext_indent, inset: ext_inset, undent: ext_undent,
@@ -386,7 +342,7 @@ function infix(exp, env) {
 
     function pratt(lbp) {
         let result = env.tree[next+=1];
-         while (true) {
+        while (true) {
             const op = env.tree[next+=1];
             let rbp = op? 0 : -1, 
                 sfx = op? op[0].slice(-3) : undefined;
@@ -408,8 +364,11 @@ function infix(exp, env) {
 
 // <@name> -------------------------------------------------
 
-function same_match(exp, env) { // <@name>
-    const name = exp[1].slice(2,-1).trim(),
+function same_match(exp, env) { // <eq name>, deprecate <@name>
+    const ext = exp[1].slice(1,-1).split(' '),
+    // let key = ext[0]; //, sigil = '';
+    // const name = exp[1].slice(2,-1).trim(),
+        name = ext[1],
         idx = env.codex.names[name],
         code = env.code[idx];
     if (!code) throw exp[1]+" undefined rule: "+name;
@@ -645,7 +604,7 @@ function exp_show(exp) {
     switch (exp[0]) {
         case ID: return exp[2];
         case SQ: return "'"+str_esc(exp[2])+"'";
-        case DQ: return '"'+str_esc(exp[2])+'"';
+        // case DQ: return '"'+str_esc(exp[2])+'"';
         case CHS: {
             const [_, neg, min, max, str] = exp;
             let sign = neg? "~" : "";
@@ -700,7 +659,7 @@ function str_esc(s) {
 
 //  compiler -- ptree rules => instruction code ----------------------------
 
-function compiler(rules) { // -> { rules, names, code, start, space }
+function compiler(rules) { // -> {rules, names, code, start}
     let names = {}, first;
     for (let i=0; i<rules.length; i+=1) {
         const [_rule, [[_id, name], _exp]] = rules[i];
@@ -716,9 +675,9 @@ function compiler(rules) { // -> { rules, names, code, start, space }
     for (let i=0; i<code.length; i+=1) { 
         optimize(code[i], code);
     }
-    let space, sp = names["_space_"];
-    if (sp) space = code[sp];
-    return {rules, names, code, start, space};
+    // let space, sp = names["_space_"];
+    // if (sp) space = code[sp];
+    return {rules, names, code, start};
 
     function emit(exp) {  // ptree -> [Op, args..]
         switch(exp[0]) {
@@ -730,7 +689,7 @@ function compiler(rules) { // -> { rules, names, code, start, space }
             }
             case "alt": return [ALT, exp[1].map(emit)];
             case "seq": return [SEQ, 1, 1, exp[1].map(emit)];
-            case "rep": {
+            case "rep": { // ['rep',[[expn],['sfx', sfx]]]
                 const [expn, [suffix, sfx]] = exp[1];
                 const [min, max] = min_max(suffix, sfx);
                 const expr = emit(expn);
@@ -768,9 +727,18 @@ function compiler(rules) { // -> { rules, names, code, start, space }
                 }
                 return [PRE, pfx, expr]; 
             };
-            case "sq": return sq_dq(SQ, exp[1]);
-            case "dq": return sq_dq(DQ, exp[1]);
+            // case "sq": return sq_dq(SQ, exp[1]);
+            // case "dq": return sq_dq(DQ, exp[1]);
  
+            case "sq": {
+                const txt = exp[1];
+                const icase = txt.slice(-1) === "i";
+                let str = icase? txt.slice(1,-2) : txt.slice(1,-1);
+                str = escape_codes(str);
+                if (icase) str = str.toUpperCase();
+                return [SQ, icase, str];
+            };
+
             case "chs": {
                 let str = exp[1].slice(1,-1);
                 str = escape_codes(str);
@@ -783,16 +751,8 @@ function compiler(rules) { // -> { rules, names, code, start, space }
         }
     }
 
-    function sq_dq(fx, txt) {
-        let icase = txt.slice(-1) === "i";
-        let str = icase? txt.slice(1,-2) : txt.slice(1,-1);
-        str = escape_codes(str);
-        if (icase) str = str.toUpperCase();
-        return [fx, icase, str];
-    };
-
     function min_max(suffix, sfx) { // -> [min, max]
-        // sfx   = ~'+?' / '*' range?
+        // sfx   = [+?] / '*' range?
         // range = num (dots num?)?
         let min = 0, max = 0; // for sfx == "*""
         if (suffix === "sfx") {
@@ -809,7 +769,7 @@ function compiler(rules) { // -> { rules, names, code, start, space }
                 min = parseInt(sfx[0][1], 10);
                 max = parseInt(sfx[2][1], 10);
             }
-        } else throw "unknown suffix: "+exp;
+        } else throw "unknown suffix: "+suffix;
         return [min, max];
     }
 
@@ -834,17 +794,17 @@ function compiler(rules) { // -> { rules, names, code, start, space }
     }
     
     function first_char(exp, code) {
-        switch (exp[0]) { // TODO empty sq or dq return undefined...
+        switch (exp[0]) { // TODO empty sq return undefined...
             case ID: {
                 return first_char(code[exp[1]], code);
             }
             case SEQ: return first_char(exp[3][0], code);
             case SQ: return exp[2][0];
-            case DQ: {
-                const c = exp[2][0];
-                if (c === " ") return null;
-                return c;
-            }
+            // case DQ: {
+            //     const c = exp[2][0];
+            //     if (c === " ") return null;
+            //     return c;
+            // }
             default: return null;
         }
     }
@@ -854,8 +814,7 @@ function compiler(rules) { // -> { rules, names, code, start, space }
 const escape_code1 = {
     't': '\t',
     'n': '\n',
-    'r': '\r',
-    '\\': '\\'
+    'r': '\r'
 }
 
 function escape_codes(str) {
@@ -879,6 +838,12 @@ function escape_codes(str) {
             i += 5;
             continue;
         }
+        if (x === 'U' && i+9 < str.length) {
+            let hex = str.slice(i+2, i+10);
+            s += String.fromCharCode(parseInt(hex, 16));
+            i += 9;
+            continue;
+        }
         s += '\\'; // literal back-slash
     }
     return s;
@@ -898,7 +863,7 @@ function trace_report(report) {
 
 function parse(codex, input, extend, options) {
     let env = {
-        codex, // {rules, names, code, start, space}
+        codex, // {rules, names, code, start}
         code: codex.code,
         extend: {},
         options: {},
