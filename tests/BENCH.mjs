@@ -50,6 +50,9 @@ console.timeEnd(tests)
     0.092 ms to compile(pPEG_grammar)
     0.013 ms to compile(date)
 
+    iMac M1
+    0.069 ms pPEG (new grammar, no double quotes)
+
     MacBook Air M2
     0.063 ms pPEG (new grammar, no double quotes)
 

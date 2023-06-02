@@ -91,7 +91,7 @@ function eval(exp, env) {
         const result = eval(expr, env);
         if (!result) return false;
         if (env.tree.length === stack) { // terminal string value..
-            if (name[0] === "_") return true;
+            if (name[0] === '_') return true;
             env.tree.push([name, env.input.slice(start, env.pos)]);
             return true; // => (name, "matched..")
         }

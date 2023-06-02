@@ -101,7 +101,6 @@ function run_tests(name, tests) {
         results.push(test_case[0]);
         const grammar = peg.compile(test_case[0]); // TODO catch err
         for (let j=1; j<test_case.length; j+=1) {
-            if (!test_case[j]) continue;
             results.push('--  '+name+" case:"+(i+1)+" input:"+j);
             results.push(test_case[j]);
             results.push("-");

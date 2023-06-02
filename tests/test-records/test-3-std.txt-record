@@ -1,0 +1,516 @@
+--- test-3-std.txt case:1
+
+s = 'x' '' 'y'
+--  test-3-std.txt case:1 input:1
+xy
+-
+["s","xy"]
+--- test-3-std.txt case:2
+s = 'x'/'y'
+--  test-3-std.txt case:2 input:1
+x
+-
+["s","x"]
+--  test-3-std.txt case:2 input:2
+y
+-
+["s","y"]
+--- test-3-std.txt case:3
+ s = 'x'/'y'/'z'
+--  test-3-std.txt case:3 input:1
+x
+-
+["s","x"]
+--  test-3-std.txt case:3 input:2
+y
+-
+["s","y"]
+--  test-3-std.txt case:3 input:3
+z
+-
+["s","z"]
+--- test-3-std.txt case:4
+s = ('x'/'y')*
+--  test-3-std.txt case:4 input:1
+
+-
+["s",""]
+--  test-3-std.txt case:4 input:2
+x
+-
+["s","x"]
+--  test-3-std.txt case:4 input:3
+y
+-
+["s","y"]
+--  test-3-std.txt case:4 input:4
+xy
+-
+["s","xy"]
+--  test-3-std.txt case:4 input:5
+xyxyxyyyxx
+-
+["s","xyxyxyyyxx"]
+--- test-3-std.txt case:5
+s = ('x'/'y'/'z')*
+--  test-3-std.txt case:5 input:1
+y
+-
+["s","y"]
+--  test-3-std.txt case:5 input:2
+xyz
+-
+["s","xyz"]
+--  test-3-std.txt case:5 input:3
+yxz
+-
+["s","yxz"]
+--  test-3-std.txt case:5 input:4
+zzzxxyxzz
+-
+["s","zzzxxyxzz"]
+--- test-3-std.txt case:6
+s = 'x' 'y'? 'z'
+--  test-3-std.txt case:6 input:1
+xyz
+-
+["s","xyz"]
+--  test-3-std.txt case:6 input:2
+xz
+-
+["s","xz"]
+--- test-3-std.txt case:7
+ s = 'x' 'y'+ 'z'
+--  test-3-std.txt case:7 input:1
+xyz
+-
+["s","xyz"]
+--  test-3-std.txt case:7 input:2
+xyyyz
+-
+["s","xyyyz"]
+--- test-3-std.txt case:8
+ s = ('x'/'y'/'z')+
+--  test-3-std.txt case:8 input:1
+y
+-
+["s","y"]
+--  test-3-std.txt case:8 input:2
+xyyz
+-
+["s","xyyz"]
+--  test-3-std.txt case:8 input:3
+yxz
+-
+["s","yxz"]
+--  test-3-std.txt case:8 input:4
+zzzxxyxzz
+-
+["s","zzzxxyxzz"]
+--- test-3-std.txt case:9
+ s = ('x'/~'x'*)*
+--  test-3-std.txt case:9 input:1
+xxx
+-
+["s","xxx"]
+--  test-3-std.txt case:9 input:2
+yyy
+-
+["s","yyy"]
+--  test-3-std.txt case:9 input:3
+xyz
+-
+["s","xyz"]
+--- test-3-std.txt case:10
+s = 'xy'* 'xz'
+--  test-3-std.txt case:10 input:1
+xyxyxz
+-
+["s","xyxyxz"]
+--  test-3-std.txt case:10 input:2
+xz
+-
+["s","xz"]
+--- test-3-std.txt case:11
+ s = ('x' 'y')* 'xz'
+--  test-3-std.txt case:11 input:1
+xyxyxz
+-
+["s","xyxyxz"]
+--  test-3-std.txt case:11 input:2
+xz
+-
+["s","xz"]
+--- test-3-std.txt case:12
+s = [x]
+x
+--- test-3-std.txt case:13
+s = [x]*
+--  test-3-std.txt case:13 input:1
+
+-
+["s",""]
+--  test-3-std.txt case:13 input:2
+x
+-
+["s","x"]
+--  test-3-std.txt case:13 input:3
+xxxxx
+-
+["s","xxxxx"]
+--- test-3-std.txt case:14
+s = [xyz]
+--  test-3-std.txt case:14 input:1
+x
+-
+["s","x"]
+--  test-3-std.txt case:14 input:2
+y
+-
+["s","y"]
+--  test-3-std.txt case:14 input:3
+z
+-
+["s","z"]
+--- test-3-std.txt case:15
+s = [x-z]*
+--  test-3-std.txt case:15 input:1
+
+-
+["s",""]
+--  test-3-std.txt case:15 input:2
+x
+-
+["s","x"]
+--  test-3-std.txt case:15 input:3
+y
+-
+["s","y"]
+--  test-3-std.txt case:15 input:4
+z
+-
+["s","z"]
+--  test-3-std.txt case:15 input:5
+zzxxyzyx
+-
+["s","zzxxyzyx"]
+--- test-3-std.txt case:16
+ s = p q   p = 'x'  q = 'y'
+--  test-3-std.txt case:16 input:1
+xy
+-
+["s",[["p","x"],["q","y"]]]
+--- test-3-std.txt case:17
+s = p q   p = 'x'  q = 'y' s*
+--  test-3-std.txt case:17 input:1
+xy
+-
+["s",[["p","x"],["q","y"]]]
+--  test-3-std.txt case:17 input:2
+xyxyxy
+-
+["s",[["p","x"],["s",[["p","x"],["s",[["p","x"],["q","y"]]]]]]]
+--- test-3-std.txt case:18
+ s = 'x' !'y' 'z' / 'xy' 'z'
+--  test-3-std.txt case:18 input:1
+xz
+-
+["s","xz"]
+--  test-3-std.txt case:18 input:2
+xyz
+-
+["s","xyz"]
+--- test-3-std.txt case:19
+s = 'x' &[x-z] [a-z]+ / 'x' [0-9] [x-z]
+--  test-3-std.txt case:19 input:1
+xyz
+-
+["s","xyz"]
+--  test-3-std.txt case:19 input:2
+xyabcz
+-
+["s","xyabcz"]
+--  test-3-std.txt case:19 input:3
+x9z
+-
+["s","x9z"]
+--  test-3-std.txt case:19 input:4
+x0a
+-
+Error: In rule: s, expected: [x-z], failed at line: 1.3
+     1 | x0a
+           ^
+--- test-3-std.txt case:20
+s = ~[x-z]
+--  test-3-std.txt case:20 input:1
+a
+-
+["s","a"]
+--  test-3-std.txt case:20 input:2
+y
+-
+Error: failed at line: 1.1
+     1 | y
+         ^
+--- test-3-std.txt case:21
+ s = []
+--  test-3-std.txt case:21 input:1
+
+-
+Error: failed at line: 1.1
+     1 | 
+         ^
+--- test-3-std.txt case:22
+ s = ~[]
+--  test-3-std.txt case:22 input:1
+x
+-
+["s","x"]
+--- test-3-std.txt case:23
+s = !(~[])
+--  test-3-std.txt case:23 input:1
+
+-
+["s",""]
+--- test-3-std.txt case:24
+s = 'x' '\t' 'y'
+--  test-3-std.txt case:24 input:1
+x	y
+-
+["s","x\ty"]
+--  test-3-std.txt case:24 input:2
+x\ty
+-
+Error: In rule: s, expected: '\t', failed at line: 1.2
+     1 | x\ty
+          ^
+--- test-3-std.txt case:25
+s = 'x' '\u0009' 'y'
+--  test-3-std.txt case:25 input:1
+x	y
+-
+["s","x\ty"]
+--- test-3-std.txt case:26
+s = 'x' '\U00000009' 'y'
+--  test-3-std.txt case:26 input:1
+x	y
+-
+["s","x\ty"]
+--  test-3-std.txt case:26 input:2
+x\ty
+-
+Error: In rule: s, expected: '\t', failed at line: 1.2
+     1 | x\ty
+          ^
+--- test-3-std.txt case:27
+s = 'x' [\u0009] 'y'
+--  test-3-std.txt case:27 input:1
+x	y
+-
+["s","x\ty"]
+--  test-3-std.txt case:27 input:2
+x\ty
+-
+Error: In rule: s, expected: [\t], failed at line: 1.2
+     1 | x\ty
+          ^
+--- test-3-std.txt case:28
+s = 'x' [ \t\n\r]* 'y'
+--  test-3-std.txt case:28 input:1
+x
+        y
+-
+["s","x\n        y"]
+--- test-3-std.txt case:29
+ s = 'x' ('\n'/'\r' '\n'?) [ \t]* 'y'
+--  test-3-std.txt case:29 input:1
+x
+        y
+-
+["s","x\n        y"]
+--- test-3-std.txt case:30
+s = 'x' [\u0009-\u005A]* 'y'
+--  test-3-std.txt case:30 input:1
+xABCy
+-
+["s","xABCy"]
+--  test-3-std.txt case:30 input:2
+x	XYZy
+-
+["s","x\tXYZy"]
+--  test-3-std.txt case:30 input:3
+xabcy
+-
+Error: In rule: s, expected: 'y', failed at line: 1.2
+     1 | xabcy
+          ^
+--- test-3-std.txt case:31
+s = '«'
+--  test-3-std.txt case:31 input:1
+«
+-
+["s","«"]
+--- test-3-std.txt case:32
+s = 'x«»x«'
+--  test-3-std.txt case:32 input:1
+x«»x«
+-
+["s","x«»x«"]
+--- test-3-std.txt case:33
+s = [«]
+--  test-3-std.txt case:33 input:1
+«
+-
+["s","«"]
+--- test-3-std.txt case:34
+s = [x«y»]+
+--  test-3-std.txt case:34 input:1
+y»x«
+-
+["s","y»x«"]
+--- test-3-std.txt case:35
+ s = 'x'*3
+--  test-3-std.txt case:35 input:1
+xx
+-
+Error: failed at line: 1.1
+     1 | xx
+         ^
+--  test-3-std.txt case:35 input:2
+xxx
+-
+["s","xxx"]
+--  test-3-std.txt case:35 input:3
+xxxx
+-
+Error: Fell short at line: 1.4
+     1 | xxxx
+            ^
+--- test-3-std.txt case:36
+ s = 'x'*3..5
+--  test-3-std.txt case:36 input:1
+xx
+-
+Error: failed at line: 1.1
+     1 | xx
+         ^
+--  test-3-std.txt case:36 input:2
+xxx
+-
+["s","xxx"]
+--  test-3-std.txt case:36 input:3
+xxxx
+-
+["s","xxxx"]
+--  test-3-std.txt case:36 input:4
+xxxxx
+-
+["s","xxxxx"]
+--  test-3-std.txt case:36 input:5
+xxxxxx
+-
+Error: Fell short at line: 1.6
+     1 | xxxxxx
+              ^
+--- test-3-std.txt case:37
+s = 'x'*3..
+--  test-3-std.txt case:37 input:1
+x
+-
+Error: failed at line: 1.1
+     1 | x
+         ^
+--  test-3-std.txt case:37 input:2
+xxx
+-
+["s","xxx"]
+--  test-3-std.txt case:37 input:3
+xxxx
+-
+["s","xxxx"]
+--  test-3-std.txt case:37 input:4
+xxxxxxx
+-
+["s","xxxxxxx"]
+--- test-3-std.txt case:38
+ s = 'abc'i
+--  test-3-std.txt case:38 input:1
+abc
+-
+["s","abc"]
+--  test-3-std.txt case:38 input:2
+aBc
+-
+["s","aBc"]
+--  test-3-std.txt case:38 input:3
+ABC
+-
+["s","ABC"]
+--- test-3-std.txt case:39
+    # comment ....
+    date  = year '-' month '-' day
+    year  = [0-9]*4
+    month = [0-9]*2  # comment..
+    day   = [0-9]*2
+    # end comment.....
+--  test-3-std.txt case:39 input:1
+2022-02-03
+-
+["date",[["year","2022"],["month","02"],["day","03"]]]
+--- test-3-std.txt case:40
+    # standard pPEG grammar...
+    Peg   = _ rule+                         
+    rule  = id _ '=' _ alt                       
+                                                
+    alt   = seq ('/'_ seq)*                      
+    seq   = rep+                                 
+    rep   = pre sfx? _                           
+    pre   = pfx? term                            
+    term  = call / quote / chars / group / extn  
+    group = '('_ alt ')'                         
+                                                
+    call  = id _ !'='                 
+    id    = [a-zA-Z_] [a-zA-Z0-9_-]*             
+                                                
+    pfx   = [~!&]                                
+    sfx   = [+?] / '*' range?                    
+    range = num (dots num?)?                      
+    num   = [0-9]+
+    dots  = '..'                           
+                                            
+    quote = ['] str ['] 'i'?                      
+    str   = ~[']*                                
+    chars = '[' chs ']'                          
+    chs   =  ~']'*                               
+    extn  = '<' ~'>'* '>'                        
+    _     = ([ \t\n\r]+ / '#' ~[\n\r]*)*
+--  test-3-std.txt case:40 input:1
+    # standard pPEG grammar...
+    Peg   = _ rule+                         
+    rule  = id _ '=' _ alt                       
+                                                
+    alt   = seq ('/'_ seq)*                      
+    seq   = rep+                                 
+    rep   = pre sfx? _                           
+    pre   = pfx? term                            
+    term  = call / quote / chars / group / extn  
+    group = '('_ alt ')'                         
+                                                
+    call  = id _ !'='                 
+    id    = [a-zA-Z_] [a-zA-Z0-9_-]*             
+                                                
+    pfx   = [~!&]                                
+    sfx   = [+?] / '*' range?                    
+    range = num (dots num?)?                      
+    num   = [0-9]+
+    dots  = '..'                           
+                                            
+    quote = ['] str ['] 'i'?                      
+    str   = ~[']*                                
+    chars = '[' chs ']'                          
+    chs   =  ~']'*                               
+    extn  = '<' ~'>'* '>'                        
+    _     = ([ \t\n\r]+ / '#' ~[\n\r]*)*
+
+-
+["Peg",[["rule",[["id","Peg"],["seq",[["id","_"],["rep",[["id","rule"],["sfx","+"]]]]]]],["rule",[["id","rule"],["seq",[["id","id"],["id","_"],["str","="],["id","_"],["id","alt"]]]]],["rule",[["id","alt"],["seq",[["id","seq"],["rep",[["seq",[["str","/"],["id","_"],["id","seq"]]],["sfx","*"]]]]]]],["rule",[["id","seq"],["rep",[["id","rep"],["sfx","+"]]]]],["rule",[["id","rep"],["seq",[["id","pre"],["rep",[["id","sfx"],["sfx","?"]]],["id","_"]]]]],["rule",[["id","pre"],["seq",[["rep",[["id","pfx"],["sfx","?"]]],["id","term"]]]]],["rule",[["id","term"],["alt",[["id","call"],["id","quote"],["id","chars"],["id","group"],["id","extn"]]]]],["rule",[["id","group"],["seq",[["str","("],["id","_"],["id","alt"],["str",")"]]]]],["rule",[["id","call"],["seq",[["id","id"],["id","_"],["pre",[["pfx","!"],["str","="]]]]]]],["rule",[["id","id"],["seq",[["chs","a-zA-Z_"],["rep",[["chs","a-zA-Z0-9_-"],["sfx","*"]]]]]]],["rule",[["id","pfx"],["chs","~!&"]]],["rule",[["id","sfx"],["alt",[["chs","+?"],["seq",[["str","*"],["rep",[["id","range"],["sfx","?"]]]]]]]]],["rule",[["id","range"],["seq",[["id","num"],["rep",[["seq",[["id","dots"],["rep",[["id","num"],["sfx","?"]]]]],["sfx","?"]]]]]]],["rule",[["id","num"],["rep",[["chs","0-9"],["sfx","+"]]]]],["rule",[["id","dots"],["str",".."]]],["rule",[["id","quote"],["seq",[["chs","'"],["id","str"],["chs","'"],["rep",[["str","i"],["sfx","?"]]]]]]],["rule",[["id","str"],["rep",[["pre",[["pfx","~"],["chs","'"]]],["sfx","*"]]]]],["rule",[["id","chars"],["seq",[["str","["],["id","chs"],["str","]"]]]]],["rule",[["id","chs"],["rep",[["pre",[["pfx","~"],["str","]"]]],["sfx","*"]]]]],["rule",[["id","extn"],["seq",[["str","<"],["rep",[["pre",[["pfx","~"],["str",">"]]],["sfx","*"]]],["str",">"]]]]],["rule",[["id","_"],["rep",[["alt",[["rep",[["chs"," \\t\\n\\r"],["sfx","+"]]],["seq",[["str","#"],["rep",[["pre",[["pfx","~"],["chs","\\n\\r"]]],["sfx","*"]]]]]]],["sfx","*"]]]]]]]

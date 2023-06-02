@@ -1,0 +1,314 @@
+
+s = 'x' '' 'y'
+--
+xy
+---
+s = 'x'/'y'
+--
+x
+--
+y
+---
+ s = 'x'/'y'/'z'
+--
+x
+--
+y
+--
+z
+---
+s = ('x'/'y')*
+--
+
+--
+x
+--
+y
+--
+xy
+--
+xyxyxyyyxx
+---
+s = ('x'/'y'/'z')*
+--
+y
+--
+xyz
+--
+yxz
+--
+zzzxxyxzz
+---
+s = 'x' 'y'? 'z'
+--
+xyz
+--
+xz
+---
+ s = 'x' 'y'+ 'z'
+--
+xyz
+--
+xyyyz
+---
+ s = ('x'/'y'/'z')+
+--
+y
+--
+xyyz
+--
+yxz
+--
+zzzxxyxzz
+---
+ s = ('x'/~'x'*)*
+--
+xxx
+--
+yyy
+--
+xyz
+---
+s = 'xy'* 'xz'
+--
+xyxyxz
+--
+xz
+---
+ s = ('x' 'y')* 'xz'
+--
+xyxyxz
+--
+xz
+---
+s = [x]
+x
+---
+s = [x]*
+--
+
+--
+x
+--
+xxxxx
+---
+s = [xyz]
+--
+x
+--
+y
+--
+z
+---
+s = [x-z]*
+--
+
+--
+x
+--
+y
+--
+z
+--
+zzxxyzyx
+---
+ s = p q   p = 'x'  q = 'y'
+--
+xy
+---
+s = p q   p = 'x'  q = 'y' s*
+--
+xy
+--
+xyxyxy
+---
+ s = 'x' !'y' 'z' / 'xy' 'z'
+--
+xz
+--
+xyz
+---
+s = 'x' &[x-z] [a-z]+ / 'x' [0-9] [x-z]
+--
+xyz
+--
+xyabcz
+--
+x9z
+--
+x0a
+---
+s = ~[x-z]
+--
+a
+--
+y
+---
+ s = []
+--
+
+---
+ s = ~[]
+--
+x
+---
+s = !(~[])
+--
+
+---
+s = 'x' '\t' 'y'
+--
+x	y
+--
+x\ty
+---
+s = 'x' '\u0009' 'y'
+--
+x	y
+---
+s = 'x' '\U00000009' 'y'
+--
+x	y
+--
+x\ty
+---
+s = 'x' [\u0009] 'y'
+--
+x	y
+--
+x\ty
+---
+s = 'x' [ \t\n\r]* 'y'
+--
+x
+        y
+---
+ s = 'x' ('\n'/'\r' '\n'?) [ \t]* 'y'
+--
+x
+        y
+---
+s = 'x' [\u0009-\u005A]* 'y'
+--
+xABCy
+--
+x	XYZy
+--
+xabcy
+---
+s = '«'
+--
+«
+---
+s = 'x«»x«'
+--
+x«»x«
+---
+s = [«]
+--
+«
+---
+s = [x«y»]+
+--
+y»x«
+---
+ s = 'x'*3
+--
+xx
+--
+xxx
+--
+xxxx
+---
+ s = 'x'*3..5
+--
+xx
+--
+xxx
+--
+xxxx
+--
+xxxxx
+--
+xxxxxx
+---
+s = 'x'*3..
+--
+x
+--
+xxx
+--
+xxxx
+--
+xxxxxxx
+---
+ s = 'abc'i
+--
+abc
+--
+aBc
+--
+ABC
+---
+    # comment ....
+    date  = year '-' month '-' day
+    year  = [0-9]*4
+    month = [0-9]*2  # comment..
+    day   = [0-9]*2
+    # end comment.....
+--
+2022-02-03
+---
+    # standard pPEG grammar...
+    Peg   = _ rule+                         
+    rule  = id _ '=' _ alt                       
+                                                
+    alt   = seq ('/'_ seq)*                      
+    seq   = rep+                                 
+    rep   = pre sfx? _                           
+    pre   = pfx? term                            
+    term  = call / quote / chars / group / extn  
+    group = '('_ alt ')'                         
+                                                
+    call  = id _ !'='                 
+    id    = [a-zA-Z_] [a-zA-Z0-9_-]*             
+                                                
+    pfx   = [~!&]                                
+    sfx   = [+?] / '*' range?                    
+    range = num (dots num?)?                      
+    num   = [0-9]+
+    dots  = '..'                           
+                                            
+    quote = ['] str ['] 'i'?                      
+    str   = ~[']*                                
+    chars = '[' chs ']'                          
+    chs   =  ~']'*                               
+    extn  = '<' ~'>'* '>'                        
+    _     = ([ \t\n\r]+ / '#' ~[\n\r]*)*
+--
+    # standard pPEG grammar...
+    Peg   = _ rule+                         
+    rule  = id _ '=' _ alt                       
+                                                
+    alt   = seq ('/'_ seq)*                      
+    seq   = rep+                                 
+    rep   = pre sfx? _                           
+    pre   = pfx? term                            
+    term  = call / quote / chars / group / extn  
+    group = '('_ alt ')'                         
+                                                
+    call  = id _ !'='                 
+    id    = [a-zA-Z_] [a-zA-Z0-9_-]*             
+                                                
+    pfx   = [~!&]                                
+    sfx   = [+?] / '*' range?                    
+    range = num (dots num?)?                      
+    num   = [0-9]+
+    dots  = '..'                           
+                                            
+    quote = ['] str ['] 'i'?                      
+    str   = ~[']*                                
+    chars = '[' chs ']'                          
+    chs   =  ~']'*                               
+    extn  = '<' ~'>'* '>'                        
+    _     = ([ \t\n\r]+ / '#' ~[\n\r]*)*

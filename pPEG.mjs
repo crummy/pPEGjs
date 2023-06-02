@@ -119,7 +119,7 @@ function ID(exp, env) { // [ID, idx, name]
         return true;
     }
     if (env.tree.length === stack) { // terminal string value..
-        const result = [name, env.input.slice(start, env.pos)]
+        const result = [name, env.input.slice(start, env.pos)];
         env.tree.push(result);
         if (env.trace) trace_result(exp, env, result);
         return true;
@@ -910,10 +910,6 @@ function parse(codex, input, extend, options) {
         report += "failed at line: "+line_number(input, env.peak)+"\n";
         report += line_report(input, env.peak);
         return fault_report(report);
-    }
-    if (input.length === 0) {
-        if (result && env.tree.length === 1) return env.tree[0];
-        return {ok:false, err:"empty input string"}; // ["$error", "empty input string"]
     }
     if (env.tree.length !== 1) { // can this happen?
         return {ok:false, err:"bad tree? "+JSON.stringify(env.tree)};
