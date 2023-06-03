@@ -2,15 +2,15 @@ import peg from '../pPEG.mjs'
 
 console.log("json grammar...");
 
-const json = peg.compile(`
+const json = peg.compile(String.raw`
     json   = _ value _
     value  =  Str / Arr / Obj / num / lit
     Obj    = '{' _ (memb (',' _ memb)*)? _ '}'
     memb   = Str _ ':' _ value _
     Arr    = '[' _ (value (_ ',' _ value)*)? _ ']'
     Str    = '"' chars* '"'
-    chars  = ~[\u0000-\u001F"\\]+ / '\\' esc
-    esc    = ["\\/bfnrt] / 'u' [0-9a-fA-F]*4
+    chars  = ~[\u0000-\u001F"\]+ / '\' esc
+    esc    = ["\/bfnrt] / 'u' [0-9a-fA-F]*4
     num    = _int _frac? _exp?
     _int   = '-'? ([1-9] [0-9]* / '0')
     _frac  = '.' [0-9]+
@@ -21,9 +21,9 @@ const json = peg.compile(`
 
 // Obj Arr Str need to be caps (they can be empty)
 
-const p = json.parse(`
+const p = json.parse(String.raw`
   { "answer": 42,
-    "mixed": [1, 2.3, "a\\tstring", true, [4, 5]],
+    "mixed": [1, 2.3, "a\tstring", true, [4, 5]],
     "empty": {}
   }
 `);
