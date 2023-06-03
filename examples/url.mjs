@@ -18,10 +18,17 @@ const test = "http://www.ics.uci.edu/pub/ietf/uri/#Related";
 
 const parse = uri.parse(test);
 
-if (parse.ok) console.log(JSON.stringify(parse.ptree));
+if (parse.ok) console.log(peg.show_tree(parse.ptree)); //JSON.stringify(parse.ptree));
 else console.log(parse.err);
 
 /*
 url grammar...
 ["URI",[["scheme","http"],["auth","www.ics.uci.edu"],["path","/pub/ietf/uri/"],["frag","Related"]]]
+
+URI
+├─scheme "http"
+├─auth "www.ics.uci.edu"
+├─path "/pub/ietf/uri/"
+└─frag "Related"
+
 */

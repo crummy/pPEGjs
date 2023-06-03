@@ -849,6 +849,37 @@ function escape_codes(str) {
     return s;
 }
 
+// -- pretty print ptree ----------------------------------------------
+
+function show_tree(ptree) {
+    if (!ptree) return "";
+    return show_ptree(ptree, 0, 0);
+}
+
+function show_ptree(ptree, inset, last) {
+    // last = int bit map flag if after last kid
+    let res = ptree[0]; // rule name
+    if ((typeof ptree[1]) === 'string') {
+        return res+' "'+str_esc(ptree[1])+'"';
+    } else {
+        let bars = "\n"; // indent bar markers
+        for (let i=0; i<inset; i+=1) {
+            bars += (((last>>i)&1) === 1)? "  " : "\u2502 "; // "| "
+        }
+        const kids = ptree[1];
+        let bod = "";
+        let tip = "\u251C\u2500";   // |-
+        for (let i=0; i<kids.length; i+=1) {
+            if (i === kids.length-1) {
+                tip = "\u2514\u2500"; // `-
+                last |= (1<<inset); // bit flag last kid
+            }
+            bod += bars+tip+show_ptree(kids[i], inset+1, last);
+        }
+        return res+bod;
+    }
+}
+
 
 // ----------------------------------------------------------------------
 
@@ -940,6 +971,6 @@ function compile(grammar, extend, options) {
     return { ok: true, peg, parse: parser };
 }
 
-const peg = { compile };
+const peg = { compile, show_tree };
 
 export default peg;

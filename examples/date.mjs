@@ -24,5 +24,5 @@ const dt = peg.compile(`
 
 const d = dt.parse("2021-04-0567");
 
-if (d.ok) console.log(JSON.stringify(d.ptree));
+if (d.ok) console.log(peg.show_tree(d.ptree)); //JSON.stringify(d.ptree));
 else console.log(d.err);

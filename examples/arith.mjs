@@ -1,6 +1,6 @@
 import peg from '../pPEG.mjs'
 
-console.log("Arith operatpr expression example....")
+console.log("Arith operator expression example....")
 
 const arith = peg.compile(`
   exp = add 
@@ -23,7 +23,7 @@ const tests = [
 
 for (let test of tests) {
     const p = arith.parse(test);
-    if (p.ok) console.log(JSON.stringify(p.ptree));
+    if (p.ok) console.log(peg.show_tree(p.ptree)); //JSON.stringify(p.ptree));
     else console.log(p.err);
 }
 
@@ -32,3 +32,17 @@ for (let test of tests) {
 
 // x^2^3+1 ==> (+ (^ x 2 3) 1)
 // ["add",[["pow",[["sym","x"],["num","2"],["num","3"]]],["num","1"]]]
+/*
+Arith operator expression example....
+add
+├─num "1"
+└─mul
+  ├─num "2"
+  └─num "3"
+sub
+├─pow
+│ ├─sym "x"
+│ ├─num "2"
+│ └─num "3"
+└─num "1"
+*/

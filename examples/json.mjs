@@ -28,10 +28,35 @@ const p = json.parse(`
   }
 `);
 
-if (p.ok) console.log(JSON.stringify(p.ptree));
+if (p.ok) console.log(peg.show_tree(p.ptree)); //(JSON.stringify(p.ptree));
 else console.log(p.err);
 
 /*
 json grammar...
 ["Obj",[["memb",[["Str",[["chars","answer"]]],["num","42"]]],["memb",[["Str",[["chars","mixed"]]],["Arr",[["num","1"],["num","2.3"],["Str",[["chars","a"],["esc","t"],["chars","string"]]],["lit","true"],["Arr",[["num","4"],["num","5"]]]]]]],["memb",[["Str",[["chars","empty"]]],["Obj","{}"]]]]]
+
+Obj
+├─memb
+│ ├─Str
+│ │ └─chars "answer"
+│ └─num "42"
+├─memb
+│ ├─Str
+│ │ └─chars "mixed"
+│ └─Arr
+│   ├─num "1"
+│   ├─num "2.3"
+│   ├─Str
+│   │ ├─chars "a"
+│   │ ├─esc "t"
+│   │ └─chars "string"
+│   ├─lit "true"
+│   └─Arr
+│     ├─num "4"
+│     └─num "5"
+└─memb
+  ├─Str
+  │ └─chars "empty"
+  └─Obj
+
 */
