@@ -125,11 +125,11 @@ a1,b1,c1
 a2,"b,2",c2
 a3,b3,c3</div>
 
-<div hidden id='json-grammar'>json   = " " value " "
+<div hidden id='json-grammar'>json   = _ value _
 value  =  Str / Arr / Obj / num / lit
-Obj    = "{ " (memb (" , " memb)*)? " }"
-memb   = Str " : " value
-Arr    = "[ " (value (" , " value)*)? " ]"
+Obj    = '{'_ (memb (_','_ memb)*)? _'}'
+memb   = Str _':'_' value
+Arr    = '['_ (value (_','_ value)*)? _']'
 Str    = '"' chars* '"'
 chars  = ~[\u0000-\u001F"\\]+ / '\\' esc
 esc    = ["\\/bfnrt] / 'u' [0-9a-fA-F]*4
@@ -138,6 +138,7 @@ _int   = '-'? ([1-9] [0-9]* / '0')
 _frac  = '.' [0-9]+
 _exp   = [eE] [+-]? [0-9]+
 lit    = "true" / "false" / "null"
+_      = [ \t\n\r]*
 </div>
 <div hidden id='json-input'>{
     "answer": 42,
