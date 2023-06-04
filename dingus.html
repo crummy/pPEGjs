@@ -35,7 +35,6 @@
              input = document.getElementById('input'),
              parse = parser.parse(input.innerText), //textContent),
              output = document.getElementById('output');
-            console.log(input.textContent);
             if (parse.ok) output.textContent = peg.show_tree(parse.ptree); //JSON.stringify(parse.ptree);
             else output.textContent = parse.err;
         },
@@ -124,7 +123,8 @@ _string = '"' (~["] / '""')* '"'
 <div hidden id='csv-input'>A,B,C
 a1,b1,c1
 a2,"b,2",c2
-a3,b3,c3</div>
+a3,b3,c3
+</div>
 
 <div hidden id='json-grammar'>json   = _ value _
 value  =  Str / Arr / Obj / num / lit
