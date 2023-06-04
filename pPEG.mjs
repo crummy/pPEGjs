@@ -102,6 +102,8 @@ function ID(exp, env) { // [ID, idx, name]
     env.depth -= 1;
     if (result === false) {
         if (env.trace) trace_result(exp, env, false);
+        env.pos = start;
+        env.tree.length = stack;
         return false;
     }
     if (name[0] === '_') { // no results required..
