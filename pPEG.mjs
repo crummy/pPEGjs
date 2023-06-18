@@ -321,8 +321,9 @@ function EXTN(exp, env) { // [EXTN, "<xxx>"]
 
 const builtins = {
     "?": trace_trigger,
-    "@": same_match, // deprecate
-    eq: same_match,
+    "@": same_match, // deprecate?
+    eq: same_match, // deprecate
+    at: same_match, // TODO -- chk undefined extn working?
     infix,
     quote, quoter,
     indent: ext_indent, inset: ext_inset, undent: ext_undent,
