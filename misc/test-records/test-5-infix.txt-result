@@ -1,0 +1,107 @@
+--- test-5-infix.txt case:1
+    expr  = var (op var)*
+    op    = _ (op_1L / op_2L / op_3R) _
+    var   = [a-zA-Z0-9]+
+    op_1L = [-+]
+    op_2L = [*/]
+    op_3R = '^'
+    _     = [ \t\n\r]*
+--  test-5-infix.txt case:1 input:1
+1+2*3
+-
+["expr",[["var","1"],["op_1L","+"],["var","2"],["op_2L","*"],["var","3"]]]
+--  test-5-infix.txt case:1 input:2
+1+2-3*4+1
+-
+["expr",[["var","1"],["op_1L","+"],["var","2"],["op_1L","-"],["var","3"],["op_2L","*"],["var","4"],["op_1L","+"],["var","1"]]]
+--  test-5-infix.txt case:1 input:3
+x^n^2+1
+-
+["expr",[["var","x"],["op_3R","^"],["var","n"],["op_3R","^"],["var","2"],["op_1L","+"],["var","1"]]]
+--- test-5-infix.txt case:2
+    expr  = var (op var)* <infix>
+    op    = _ (op_1L / op_2L / op_3R) _
+    var   = [a-zA-Z0-9]+
+    op_1L = [-+]
+    op_2L = [*/]
+    op_3R = '^'
+    _     = [ \t\n\r]*
+--  test-5-infix.txt case:2 input:1
+1+2+3+4-5
+-
+["-",[["+",[["+",[["+",[["var","1"],["var","2"]]],["var","3"]]],["var","4"]]],["var","5"]]]
+--  test-5-infix.txt case:2 input:2
+1+2-3*4+1
+-
+["+",[["-",[["+",[["var","1"],["var","2"]]],["*",[["var","3"],["var","4"]]]]],["var","1"]]]
+--  test-5-infix.txt case:2 input:3
+x^n^2+1
+-
+["+",[["^",[["var","x"],["^",[["var","n"],["var","2"]]]]],["var","1"]]]
+--- test-5-infix.txt case:3
+    expr  = var (op var)*
+    op    = _ (op_1L / op_AL / op_aR) _
+    var   = [a-zA-Z0-9]+
+    op_1L = [-+]
+    op_AL = [*/]
+    op_aR = '^'
+    _     = [ \t\n\r]*
+--  test-5-infix.txt case:3 input:1
+1+2*3
+-
+["expr",[["var","1"],["op_1L","+"],["var","2"],["op_AL","*"],["var","3"]]]
+--  test-5-infix.txt case:3 input:2
+1+2-3*4+1
+-
+["expr",[["var","1"],["op_1L","+"],["var","2"],["op_1L","-"],["var","3"],["op_AL","*"],["var","4"],["op_1L","+"],["var","1"]]]
+--  test-5-infix.txt case:3 input:3
+x^n^2+1
+-
+["expr",[["var","x"],["op_aR","^"],["var","n"],["op_aR","^"],["var","2"],["op_1L","+"],["var","1"]]]
+--- test-5-infix.txt case:4
+    expr  = var (op var)* <infix>
+    op    = _ (op_1L / op_AL / op_aR) _
+    var   = [a-zA-Z0-9]+
+    op_1L = [-+]
+    op_AL = [*/]
+    op_aR = '^'
+    _     = [ \t\n\r]*
+--  test-5-infix.txt case:4 input:1
+1+2*3
+-
+["+",[["var","1"],["*",[["var","2"],["var","3"]]]]]
+--  test-5-infix.txt case:4 input:2
+1+2-3*4+1
+-
+["+",[["-",[["+",[["var","1"],["var","2"]]],["*",[["var","3"],["var","4"]]]]],["var","1"]]]
+--  test-5-infix.txt case:4 input:3
+x^n^2+1
+-
+["+",[["^",[["var","x"],["^",[["var","n"],["var","2"]]]]],["var","1"]]]
+--- test-5-infix.txt case:5
+    exp   = _ opx _
+    opx   = pre (op pre)* <infix>
+    pre   = pfx? var
+    var   = val / id / '(' _ exp _ ')'
+    val   = [0-9]+
+    id    = [a-z]+
+    pfx   = [-+]
+    op    = _ (op_1L/op_2L/op_4L/op_5L/op_3L) _
+    op_1L = '||'
+    op_2L = '&&'
+    op_3L = '<'/'>'/'>='/'<='/'=='/'!='
+    op_4L = [-+|^]
+    op_5L = [*/%&]/'<<'/'>>'/'&^'
+    _     = [ \t\n\r]*
+--  test-5-infix.txt case:5 input:1
+1+2*3
+-
+["+",[["val","1"],["*",[["val","2"],["val","3"]]]]]
+--  test-5-infix.txt case:5 input:2
+1+2-3*4+1
+-
+["+",[["-",[["+",[["val","1"],["val","2"]]],["*",[["val","3"],["val","4"]]]]],["val","1"]]]
+--  test-5-infix.txt case:5 input:3
+x+1>n*3&&p!=q||x/4<42
+-
+["||",[["&&",[[">",[["+",[["id","x"],["val","1"]]],["*",[["id","n"],["val","3"]]]]],["!=",[["id","p"],["id","q"]]]]],["<",[["/",[["id","x"],["val","4"]]],["val","42"]]]]]

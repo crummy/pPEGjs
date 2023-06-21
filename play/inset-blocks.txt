@@ -1,0 +1,16 @@
+
+block  = (inlay / line)*
+inlay  = indent line (<at inset> !sp line / inlay)*
+indent = &(<at inset> sp) inset
+inset  = ' '+ / '\t'+
+blank  = sp* _nl
+line   = ~[\n\r]* _nl?
+sp     = ' ' / '\t'
+_nl     = '\n' / '\r' '\n'?
+----------------------------
+Para one...
+    inset block line one
+    line two
+        further inset.....
+    back to first inset.
+and final line.

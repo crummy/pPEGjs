@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-/* 
+const doco = ` 
     This is a little command line tool to play and test pPEG grammars.
     
-    A text file starts with a pPEG grammar, followed by
+    Reads a text (.txt) file starting with a pPEG grammar, followed by
     one or more input text tests, each separated by a line starting
-    with four or more dashes ----  (see: date.txt for example)
+    with four or more dashes ----  (see: format below)
 
     If successful the parse tree is printed, if not errors are reported.
 
@@ -13,14 +13,14 @@
 
     To give it a try run it with node.js:
 
-    > node peg-play.mjs date.txt
+    > node peg-play.mjs play/date.txt
 
     This assumes peg-play.mjs is in the same directory as pPEG.mjs,
     if not then read how to install as a command below.
 
-    Multiple grammars with test can also be combined in a single file.
+    Multiple grammars with tests can also be combined in a single file.
 
-    Also used for regression testing of multiple test files in a directory.
+    Also used for regression testing of multiple files in tests directory.
 
 
     ## Test format -----------------------------------------------------
@@ -48,35 +48,42 @@
 
     2. This command line tool can be used with node:
 
-        > node peg-play.mjs test.txt
+        > node peg-play.mjs my-test.txt
 
-        But this requires the peg-play.mjs file to either be in the same directory as
-        the test.txt file(s), or be given an absolute path name.
+        But this requires the peg-play.mjs file to be in the same directory as
+        the my-test.txt file(s), or the use of absolute path name(s).
 
     3. Optional: to make peg-play.mjs into a command that can be used directly.
     
-        Copy this file into: <your-command-path>/pPEG.mjs
+        Copy this file into: <your-command-path>/peg-play.mjs
     
-        For example: /usr/local/bin/pp.mjs (or similar on your $PATH)
+        For example: /usr/local/bin/peg-play.mjs (or similar on your $PATH)
 
-        > chmod +x /usr/local/bin/pp.mjs
+        > chmod +x /usr/local/bin/peg-play.mjs
        
         Usage:
     
         > peg-play.mjs my-test.txt
 
-*/
+`; // doco
 
 import peg from './pPeg.mjs'; // <== EDIT.ME to relocate
 
 import { lstatSync, readFileSync, readdirSync } from 'node:fs';
 
-if (process.argv.length !== 3) {
-    console.log("Useage: expects a file name (or directory name) ...")
+if (process.argv.length !== 3 ) {
+    console.log("Useage: expects a file name (or directory name) ...\n"+
+                "  for more info use > peg-play -h");
     process.exit(1);
 }
 
 const path = process.argv[2];
+
+if (path.startsWith('-')) { // options
+    // no options so assume -help  .....
+    console.log(doco);
+    process.exit(1);
+}
 
 if (lstatSync(path).isDirectory()) {
     const files = readdirSync(path, 'utf8');
@@ -90,9 +97,14 @@ if (lstatSync(path).isDirectory()) {
 // read and compile the grammar -----------------------------------------
 
 function test_file(file, silent) {
+    if (!file.endsWith('.txt')) {
+        say("**** Error: skip '"+file+"' this is not a .txt file...");
+        say("   for more info try > node peg-play.mjs -h ");
+        return;
+    };
     const f1 = readFileSync(file, 'utf8');
 
-    const grammars = f1.split(/\r?\n====+[ \t]*([^ \t\n\r]*)[^\n\r]*\r?\n/);
+    const grammars = f1.split(/[\n\r]*====+[ \t]*([^ \t\n\r]*)[^\n\r]*\r?\n/);
 
     let peg_ok = 0, peg_err = 0; // pPEGs
 
@@ -104,19 +116,25 @@ function test_file(file, silent) {
 
         const tests = grammars[i].split(/\r?\n----+[ \t]*([^ \t\n\r]*)[^\n\r]*\r?\n/);
 
-        const ps = tests[0]; // pPEG grammar source
+        const px = tests[0]; // pPEG grammar source
 
-        say(ps)
+        say(px);
+
+        const ps = strip_leading_comments(px); // # lines prior to rules
+
+        if (ps === '') continue; // skip grammar that is all comment lines
 
         const pp = peg.compile(ps);
 
+        say("-----------------------------------------------------------");
+
+
         if (!pp.ok) { // bad grammar...
             peg_err += 1;
+            say(pp.err);
             say("********************* grammar failed, skip tests....");
             continue;
         }
-
-        say("-----------------------------------------------------------");
 
         // read and parse the input text -----------------------------------------
 
@@ -162,6 +180,12 @@ function test_file(file, silent) {
 
     function say(msg) {
         if (!silent) console.log(msg);
+    }
+
+    function strip_leading_comments(str) {
+        if (str === "") return str;
+        let rx = str.match(/^((?:[ \t\n\r]*#[^\n\r]*[\n\r]*)*)[ \t\n\r]*(.*)/s);
+        return rx[2];
     }
 
 } // test_file
