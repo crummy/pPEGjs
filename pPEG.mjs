@@ -803,11 +803,6 @@ function compiler(rules) { // -> {rules, names, code, start}
             }
             case SEQ: return first_char(exp[3][0], code);
             case SQ: return exp[2][0];
-            // case DQ: {
-            //     const c = exp[2][0];
-            //     if (c === " ") return null;
-            //     return c;
-            // }
             default: return null;
         }
     }
@@ -854,13 +849,14 @@ function escape_codes(str) {
 
 // -- pretty print ptree ----------------------------------------------
 
-function show_tree(ptree) {
+function show_tree(ptree, json=false) {
     if (!ptree) return "";
+    if (json) return show_json(ptree);
     return show_ptree(ptree, 0, 0);
 }
 
 function show_ptree(ptree, inset, last) {
-    // last = int bit map flag if after last kid
+    // last = int bit map, 1 if after last kid
     let res = ptree[0]; // rule name
     if ((typeof ptree[1]) === 'string') {
         return res+' "'+str_esc(ptree[1])+'"';
@@ -883,6 +879,24 @@ function show_ptree(ptree, inset, last) {
     }
 }
 
+function show_json(ptree, inset='') {
+    if (!ptree) return "";
+    // if (!inset) inset = '';
+    let rule = ptree[0]; // rule name
+    if ((typeof ptree[1]) === 'string') {
+        return inset+'["'+rule+'", "'+str_esc(ptree[1])+'"]';
+    } else {
+        const kids = ptree[1];
+        let block = inset+'["'+rule+'", [\n';
+        let inset1 = inset+'  ';
+        let n = kids.length-1
+        for (let i=0; i<n; i+=1) {
+            block += show_json(kids[i], inset1)+',\n';
+        }
+        block += show_json(kids[n], inset1)+']';
+        return block;
+    }
+}
 
 // ----------------------------------------------------------------------
 
@@ -945,10 +959,11 @@ function parse(codex, input, extend, options) {
         report += line_report(input, env.peak);
         return fault_report(report);
     }
-    if (env.tree.length !== 1) { // can this happen?
+    if (env.tree.length !== 1) { // TODO can this happen?
         return {ok:false, err:"bad tree? "+JSON.stringify(env.tree)};
     }
-    return {ok:true, err:undefined, ptree:env.tree[0]};
+    return {ok: true, err: undefined, ptree: env.tree[0], 
+            show_ptree: (json=false) => show_tree(env.tree[0], json)  };
 }
 
 function compile(grammar, extend, options) {
