@@ -14,6 +14,10 @@
         d     = '0'/'1'/'2'/'4'/'5'/'6'/'7'/'8'/'9'
     `;
 
+    // The pPEG parse tree for the date grammar......
+
+    // output from some other pPEG implementation, or hand written. 
+
     const date_ptree = ["Peg",[
         ["rule", [["id", "date"],
             ["seq", [["id", "year"], ["sq", "'-'"],
@@ -30,6 +34,10 @@
                 ["sq", "'3'"], ["sq", "'4'"], ["sq", "'5'"], ["sq", "'6'"],
                 ["sq", "'7'"], ["sq", "'8'"], ["sq", "'9'"]]]]]
     ]];
+
+    // The parse tree translates easily into this code for the parser machine.
+
+    // This is specific to a JavaScript implementation, hand written.
 
     const date_code = {
         "date":
@@ -49,6 +57,8 @@
         "$start": ["id", "date"]
     }
 
+    // Now the parser machine to run the code.....
+
     function parse(grammar_code, input) {
         let env = {
             rules: grammar_code,
@@ -56,10 +66,12 @@
             pos: 0, // cursor position
         }
         const start = env.rules["$start"];
-        return eval(start, env);
+        return evaluate(start, env);
     }
 
-    function eval(exp, env) {
+    // the core engine with 4 instructions (id, seq, alt, sq)
+
+    function evaluate(exp, env) {
         console.log(exp);
         switch (exp[0]) {
 
@@ -67,12 +79,12 @@
             const name = exp[1],
                 expr = env.rules[name];
             if (!expr) throw "undefined rule: "+name;
-            return eval(expr, env);
+            return evaluate(expr, env);
         }
 
         case "seq": { // (seq (args...))
             for (const arg of exp[1]) {
-                const result = eval(arg, env);
+                const result = evaluate(arg, env);
                 if (!result) return false;
             }
             return true;
@@ -81,7 +93,7 @@
         case "alt": { // (alt (args...))
             const start = env.pos;
             for (const arg of exp[1]) {
-                const result = eval(arg, env);
+                const result = evaluate(arg, env);
                 if (result) return true;
                 env.pos = start; // try the next one
             }
@@ -105,5 +117,7 @@
         } // switch
     }
 
-    console.log( parse(date_code, "2021-03-04") ); // eval exp ...
+    // give it a try....
+    
+    console.log( parse(date_code, "2021-03-04") ); // evaluate exp ...
 
