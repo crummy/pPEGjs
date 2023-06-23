@@ -3,7 +3,7 @@
 const doco = ` 
     This is a little command line tool to play and test pPEG grammars.
     
-    Reads a text (.txt) file starting with a pPEG grammar, followed by
+    It reads a text (.txt) file starting with a pPEG grammar, followed by
     one or more input text tests, each separated by a line starting
     with four or more dashes ----  (see: format below)
 
@@ -15,13 +15,18 @@ const doco = `
 
     > node peg-play.mjs play/date.txt
 
+    Or with a json format parse tree:
+
+    > node peg-play.mjs -j play/date.txt
+
     This assumes peg-play.mjs is in the same directory as pPEG.mjs,
     if not then read how to install as a command below.
 
-    Multiple grammars with tests can also be combined in a single file.
+    Multiple grammars with tests can be combined into a single file.
 
-    Also used for regression testing of multiple files in tests directory.
+    Also used for regression testing of multiple files in a tests directory.
 
+    > node peg-play.mjs tests
 
     ## Test format -----------------------------------------------------
 
@@ -39,7 +44,10 @@ const doco = `
     ========================
     a line with at least 4 ==== chars.
 
- 
+    WHen reading a grammar any intial comment lines (starting with #)
+    will be stripped off, and if there are no grammar rules then this
+    grammar block is skipped over as comments in the test file. 
+
     ## To install as a command -----------------------------------------
 
     1. Edit this peg-play.mjs file to import your local copy of pPEG.mjs 
@@ -67,39 +75,51 @@ const doco = `
 
 `; // doco
 
-import peg from './pPeg.mjs'; // <== EDIT.ME to relocate
+import peg from './pPEG.mjs'; // <== EDIT.ME to relocate
 
 import { lstatSync, readFileSync, readdirSync } from 'node:fs';
 
-if (process.argv.length !== 3 ) {
-    console.log("Useage: expects a file name (or directory name) ...\n"+
-                "  for more info use > peg-play -h");
-    process.exit(1);
-}
+// check command line args ---------------------------- 
 
-const path = process.argv[2];
+const args = process.argv.length - 2;
+const arg1 = args > 0? process.argv[2] : undefined;
+const arg2 = args > 1? process.argv[3] : undefined;
 
-if (path.startsWith('-')) { // options
-    // no options so assume -help  .....
+if (arg1 && arg1.startsWith('-h')) { // -help ....
     console.log(doco);
     process.exit(1);
 }
 
+const path = arg2? arg2 : arg1;
+const json = (arg1 && arg1.startsWith('-j'))? true : false; // -json formt
+
+const valid = (args === 1 && !arg1.startsWith('-')) ||    // file
+              (args === 2 && json);                       // -json file
+
+if (!valid) {
+    console.log("Useage: -option?  file-name (or directory-name)\n"+
+                "  option:\n"+
+                "     -j, -json for json format ptree\n"+
+                "     -h, -help for more info.\n");
+    process.exit(1);
+}
+
+// OK run tests ---------------------------------------
+
 if (lstatSync(path).isDirectory()) {
     const files = readdirSync(path, 'utf8');
     for (const file of files) {
-        test_file(path+'/'+file, true);
+        test_file(path+'/'+file, json, true); // silent
     }
 } else {
-    test_file(path);
+    test_file(path, json);
 };
 
 // read and compile the grammar -----------------------------------------
 
-function test_file(file, silent) {
+function test_file(file, json, silent) {
     if (!file.endsWith('.txt')) {
-        say("**** Error: skip '"+file+"' this is not a .txt file...");
-        say("   for more info try > node peg-play.mjs -h ");
+        say("**** Skip '"+file+"' this is not a .txt file...");
         return;
     };
     const f1 = readFileSync(file, 'utf8');
@@ -152,7 +172,7 @@ function test_file(file, silent) {
             }
             const tp = pp.parse(s);
             if (tp.ok) {
-                say(peg.show_tree(tp.ptree));
+                say(tp.show_ptree(json));
             } else { // parse failed ...
                 say(tp.err);
             }
