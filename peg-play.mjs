@@ -174,7 +174,7 @@ function test_file(file, json, silent) {
             if (tp.ok) {
                 say(tp.show_ptree(json));
             } else { // parse failed ...
-                say(tp.err);
+                 say(tp.show_err());
             }
             if (tp.ok && !neg || !tp.ok && neg) {
                 ok += 1;

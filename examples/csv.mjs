@@ -1,6 +1,6 @@
 import peg from '../pPEG.mjs';
 
-console.log("CSV example....")
+console.log("CSV example....");
 
 // const csv = peg.compile(`
 //     CSV     = Hdr Row+
@@ -70,8 +70,8 @@ a3,b3,c3
 
 const p = csv.parse(test);
 
-if (p.ok) console.log(peg.show_tree(p.ptree)); //JSON.stringify(p.ptree));
-else console.log(p.err);
+if (p.ok) console.log(p.show_ptree()); //JSON.stringify(p.ptree));
+else console.log(p.show_err());
 
 /*
 CSV example....

@@ -900,10 +900,10 @@ function show_json(ptree, inset='') {
 
 // ----------------------------------------------------------------------
 
-function fault_report(report) {
-    // console.log("Error:", report);
-    return {ok:false, err:report}; //["$error", report];
-}
+// function fault_report(report) {
+//     // console.log("Error:", report);
+//     return {ok:false, err:report}; //["$error", report];
+// }
 
 function trace_report(report) {
     console.log(report); // TODO output in env ?
@@ -935,6 +935,7 @@ function parse(codex, input, extend, options) {
         start: [],  // env.pos at start of rule
         stack: [],  // env.tree.length
         indent: [], // <indent>
+        result: true // final parse result (false on failure)
     }
     if (extend) env.extend = extend;
     if (options) {
@@ -943,27 +944,96 @@ function parse(codex, input, extend, options) {
     }
     const start = codex.start;
     const result = start[0](start, env);
-    if (!result || env.pos < input.length || env.panic) {
-        let report = env.panic || "";
-        if (result) {
-            if (env.options.short) return env.tree[0]; // OK
-            report += "Fell short at line: "+line_number(input, env.pos)+"\n";
-            report += line_report(input, env.peak);
-            return fault_report(report);
+
+    let err = 0;
+    if (env.tree.length !== 1) { // TODO can this happen?
+        env.panic += " bad ptree? ";
+        err = 1;
+    } else if (env.panic) {
+        err = 1;
+    } else if (!result) {
+        err = 2;
+    } else if (env.pos < input.length && !env.options.short) {
+        err = 3;  // fell short..
+    }
+
+    if (err > 0) { // returns env for show_err to sort out later
+        env.result = result;
+        return {
+            ok:false, env, err,
+            show_err: () => err_report(env)
         }
-        if (env.fault_pos > -1) { //}=== env.peak) {
-            report += "In rule: "+env.fault_rule+
+    }
+
+    return {
+        ok: true, err: 0, ptree: env.tree[0], 
+        show_ptree: (json=false) => show_tree(env.tree[0], json),
+        show_err: () => "No errors to report...\n"
+    }
+}
+
+// -------------
+
+        // env.result = result;
+        // return {ok:false, env, err: 2, // panic (1=fell short)
+        //         show_err: () => err_report(env)  };
+    // if (env.panic || !result) { // FAIL ...
+//     env.result = result;
+//     return {ok:false, env, err: env.panic? 2 : 3,
+//             show_err: () => err_report(env)  };
+// }
+
+// if (env.pos < input.length && !env.options.short) { // fell short..
+//     err = 3;
+//     env.result = result; // true
+//     return {ok:false, env, err: 1,
+//             show_err: () => err_report(env)  };
+// }
+    // if (!result) {
+        
+        // if (env.fault_pos > -1) {
+        //     report += "In rule: "+env.fault_rule+
+        //         ", expected: "+exp_show(env.fault_exp)+", ";
+        // }
+        // report += "failed at line: "+line_number(input, env.peak)+"\n";
+        // report += line_report(input, env.peak);
+
+        // err += "Parse failed, use: ptree.show_err() for details ...\n";
+
+        // return {ok:false, env, err:report,
+        //         show_err: () => err_report(env, "msg \n")  };
+    // }
+    // if (result && env.pos < input.length) { // fell short ...
+    //     if (env.options.short) return env.tree[0]; // OK
+
+    //     err += "Fell short, use: ptree.show_err() for details ...\n";
+
+    //     // let report = "Fell short at line: "+line_number(input, env.pos)+"\n";
+    //     // report += line_report(input, env.peak);
+
+    //     // return {ok:false, env, err:report,
+    //     //         show_err: () => err_report(env, "Fell short ")  };
+    // }
+
+    // if (env.tree.length !== 1) { // TODO can this happen?
+    //     return {ok:false, err:"bad tree? "+JSON.stringify(env.tree)};
+    // }
+// --------------------
+
+function err_report(env) {
+    let report = '';
+    if (env.result && env.pos < env.input.length) {
+        report += "Fell short at line: "+line_number(env.input, env.pos)+"\n";
+    } else {
+        report += "Failed ";
+        if (env.fault_pos > -1) {
+            report += "in rule: "+env.fault_rule+
                 ", expected: "+exp_show(env.fault_exp)+", ";
         }
-        report += "failed at line: "+line_number(input, env.peak)+"\n";
-        report += line_report(input, env.peak);
-        return fault_report(report);
+        report += "at line: "+line_number(env.input, env.peak)+"\n";       
     }
-    if (env.tree.length !== 1) { // TODO can this happen?
-        return {ok:false, err:"bad tree? "+JSON.stringify(env.tree)};
-    }
-    return {ok: true, err: undefined, ptree: env.tree[0], 
-            show_ptree: (json=false) => show_tree(env.tree[0], json)  };
+    report += line_report(env.input, env.peak);
+    return report;
 }
 
 function compile(grammar, extend, options) {

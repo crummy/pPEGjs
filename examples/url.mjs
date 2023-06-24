@@ -18,8 +18,8 @@ const test = "http://www.ics.uci.edu/pub/ietf/uri/#Related";
 
 const parse = uri.parse(test);
 
-if (parse.ok) console.log(peg.show_tree(parse.ptree)); //JSON.stringify(parse.ptree));
-else console.log(parse.err);
+if (parse.ok) console.log(parse.show_ptree()); //JSON.stringify(parse.ptree));
+else console.log(parse.show_err());
 
 /*
 url grammar...

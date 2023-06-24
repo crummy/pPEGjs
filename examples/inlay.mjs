@@ -23,8 +23,8 @@ line 2
 
 const p = block.parse(test);
 
-if (p.ok) console.log(peg.show_tree(p.ptree)); //JSON.stringify(p.ptree));
-else console.log(p.err);
+if (p.ok) console.log(p.show_ptree()); //JSON.stringify(p.ptree));
+else console.log(p.show_err());
 
 /*
 Inset blocks example....

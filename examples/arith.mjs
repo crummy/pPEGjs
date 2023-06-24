@@ -23,8 +23,8 @@ const tests = [
 
 for (let test of tests) {
     const p = arith.parse(test);
-    if (p.ok) console.log(peg.show_tree(p.ptree)); //JSON.stringify(p.ptree));
-    else console.log(p.err);
+    if (p.ok) console.log(p.show_ptree()); //JSON.stringify(p.ptree));
+    else console.log(p.show_err());
 }
 
 // 1+2*3 ==> (+ 1 (* 2 3))

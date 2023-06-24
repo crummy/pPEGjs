@@ -30,8 +30,8 @@ const test = peg.compile(`
 
 const p = test.parse("John says: Hello @michael this will work\n");
 
-if (p.ok) console.log(JSON.stringify(p.ptree));
-else console.log(p.err);
+if (p.ok) console.log(p.show_ptree()); // JSON.stringify(p.ptree));
+else console.log(p.show_err());
 
 /*
 chat markup example...

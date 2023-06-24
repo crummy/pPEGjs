@@ -1,12 +1,12 @@
 #   Play Time
 
-To run any of the files in this directory use:
+To run any of the files in the play/ directory use:
 
-    > node peg-play.mjs some-file.txt
+    > node peg-play.mjs play/some-file.txt
 
 This will compile the pPEG grammar, parse the input tests, and report everything.
 
-See: date.txt for a small example.
+Try date.txt for a small example.
 
 This is a simple way to play around with a pPEG grammar.
 

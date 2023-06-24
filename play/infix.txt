@@ -1,3 +1,6 @@
+    # First a simple operator expression grammar
+    # without any precedence (just a flat list).
+    
     expr  = var (op var)*
     op    = _ (op_1L / op_2L / op_3R) _
     var   = [a-zA-Z0-9]+
@@ -5,6 +8,10 @@
     op_2L = [*/]
     op_3R = '^'
     _     = [ \t\n\r]*
+
+    # the parse tree labels show the operators precedence
+    # e.g. op_2L  is precedence 2, left associative.
+
 --------
 1+2*3
 --------
@@ -12,6 +19,9 @@
 --------
 x^n^2+1
 ======================================
+
+    # Now run the <infix> Pratt parser
+
     expr  = var (op var)* <infix>
     op    = _ (op_1L / op_2L / op_3R) _
     var   = [a-zA-Z0-9]+
@@ -19,6 +29,9 @@ x^n^2+1
     op_2L = [*/]
     op_3R = '^'
     _     = [ \t\n\r]*
+
+    # parse tree now has precedence with 
+    # operator symbols as node labels.
 --------
 1+2+3+4-5
 --------
@@ -26,6 +39,9 @@ x^n^2+1
 --------
 x^n^2+1
 =======================================
+    # precedence can be more than 0-9 (uses ascii codes)
+    # first without <infix>
+
     expr  = var (op var)*
     op    = _ (op_1L / op_AL / op_aR) _
     var   = [a-zA-Z0-9]+
@@ -40,6 +56,7 @@ x^n^2+1
 --------
 x^n^2+1
 ==========================================
+    # Using <infix>
     expr  = var (op var)* <infix>
     op    = _ (op_1L / op_AL / op_aR) _
     var   = [a-zA-Z0-9]+
@@ -54,6 +71,9 @@ x^n^2+1
 --------
 x^n^2+1
 =======================================
+    # More realistic example.
+    # Using Go lang operator precedence.
+
     exp   = _ opx _
     opx   = pre (op pre)* <infix>
     pre   = pfx? var
@@ -61,12 +81,14 @@ x^n^2+1
     val   = [0-9]+
     id    = [a-z]+
     pfx   = [-+]
+
     op    = _ (op_1L/op_2L/op_4L/op_5L/op_3L) _
     op_1L = '||'
     op_2L = '&&'
     op_3L = '<'/'>'/'>='/'<='/'=='/'!='
     op_4L = [-+|^]
     op_5L = [*/%&]/'<<'/'>>'/'&^'
+    
     _     = [ \t\n\r]*
 --------
 1+2*3

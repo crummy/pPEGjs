@@ -1,4 +1,4 @@
-import peg from '../pPEG.mjs'
+import peg from '../pPEG.mjs';
 
 console.log("json grammar...");
 
@@ -28,8 +28,8 @@ const p = json.parse(String.raw`
   }
 `);
 
-if (p.ok) console.log(peg.show_tree(p.ptree)); //(JSON.stringify(p.ptree));
-else console.log(p.err);
+if (p.ok) console.log(p.show_ptree()); //(JSON.stringify(p.ptree));
+else console.log(p.show_err());
 
 /*
 json grammar...
