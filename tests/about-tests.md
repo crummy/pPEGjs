@@ -12,5 +12,5 @@ This will give a more detailed report.
 
 For more info on peg-play.mjs and the test file format:
 
-    > node peg-play.mjs --help
+    > node peg-play.mjs -help
 
