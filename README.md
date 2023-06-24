@@ -1,6 +1,6 @@
 # pPEGjs
 
-pPEG is a portable Parser Expression Grammar.
+A portable Parser Expression Grammar.
 
 For more information see: [pPEG].
 
@@ -36,17 +36,26 @@ It has no dependencies, it can be run in Node.js or in a browser.
         frag    = ~[ \t\n\r]*
     `);
 
-    if (!pURI.ok) throw "URI grammar error: "+pURI.err;
+    if (!pURI.ok) throw "URI grammar error:\n"+pURI.show_err();
 
     const test = "http://www.ics.uci.edu/pub/ietf/uri/#Related";
 
     const uri = pURI.parse(test);
 
-    if (uri.ok) console.log(JSON.stringify(uri.ptree));
-    else console.log(uri.err);
+    if (uri.ok) console.log(uri.show_ptree());
+    else console.log(uri.show_err());
 
     /*
-    ["URI",[["scheme","http"],["auth","www.ics.uci.edu"],["path","/pub/ietf/uri/"],["frag","Related"]]]
+    uri.ptree =
+    ["URI",[["scheme","http"],["auth","www.ics.uci.edu"],["path","/pub/ietf/uri/"],
+            ["frag","Related"]]]
+
+    uri.show_ptree() =>
+    URI
+    ├─scheme "http"
+    ├─auth "www.ics.uci.edu"
+    ├─path "/pub/ietf/uri/"
+    └─frag "Related"
     */
 ```
 
@@ -57,9 +66,9 @@ The `import` provides a `peg` object with a `compile` function which takes a str
 The `compile` result is an parser object with a `parse` function:
 
     {
-      ok: Boolean, true if there are no errors,
+      ok: boolean, true if there are no errors,
 
-      err: String, # a short error msg,
+      err: int, # an error code, 0=ok, 1=panic, ...
 
       show_err: () => a full error report.
 
@@ -69,17 +78,17 @@ The `compile` result is an parser object with a `parse` function:
 The `parser.parse` function takes a string and generates a parse-tree object:
 
     {
-      ok: Boolean, true if there are no errors,
+      ok: boolean, true if there are no errors,
 
-      err: String, # a short error msg,
+      err: int, # an error code, 0=ok, 1=panic, ...
 
       show_err: () => a full error report.
 
       ptree: parse_tree object,
 
       show_ptree: (fmt) => ptree pretty print string.
-                           # default ascii-art tree, 
-                           # fmt=true for json format.
+                              # default ascii-art tree, 
+                              # fmt=true for json format.
     }
 
 The `ptree` parse tree type is JSON data, as defined in [pPEG].
