@@ -35,8 +35,8 @@
              input = document.getElementById('input'),
              parse = parser.parse(input.innerText), //textContent),
              output = document.getElementById('output');
-            if (parse.ok) output.textContent = peg.show_tree(parse.ptree); //JSON.stringify(parse.ptree);
-            else output.textContent = parse.err;
+            if (parse.ok) output.textContent = parse.show_ptree(); // TODO json?
+            else output.textContent = parse.show_err();
         },
         eg: () => {
             const eg = document.getElementById('examples'),
