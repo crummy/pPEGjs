@@ -79,27 +79,32 @@ grammar block is skipped over as comments in the test file.
 
 import peg from './pPEG.mjs' // <== EDIT.ME to relocate
 
-import { lstatSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs'
 
-// check command line args ---------------------------- 
+// check command line args ----------------------------
 
-const args = process.argv.length - 2;
-const arg1 = args > 0? process.argv[2] : undefined;
-const arg2 = args > 1? process.argv[3] : undefined;
+let json = false     // -j json, default pretty print ptree
+let bad_opt = false; // if -x undefined
 
-if (arg1 && arg1.startsWith('-h')) { // -help doco ....
-    console.log(doco);
-    process.exit(1);
+let path_arg = 2 // argv first cmd arg
+
+const args = process.argv.length - 2
+
+if (args > 0) { // check for option...
+    const arg1 = process.argv[2]
+    if (arg1.startsWith('-')) {
+        path_arg += 1;
+        if (arg1.startsWith('-h')) { // -help doco ....
+            console.log(doco);
+            process.exit(1);
+        }
+        if (arg1.startsWith('-j')) json = true;
+        else bad_opt = true;
+    }
 }
 
-const path = arg2? arg2 : arg1;
-const json = (arg1 && arg1.startsWith('-j'))? true : false; // -json formt
-
-const valid = (args === 1 && !arg1.startsWith('-')) ||    // path
-              (args === 2 && json);                       // -json path
-
-if (!valid) {
-    console.log("Useage: -option?  file-name (or directory-name)\n"+
+if (args < 1 || bad_opt) {
+    console.log("Useage: -option? path-name (file or directory)\n"+
                 "  option:\n"+
                 "     -j, -json for json format ptree\n"+
                 "     -h, -help for more info.\n");
@@ -108,14 +113,23 @@ if (!valid) {
 
 // OK run tests ---------------------------------------
 
-if (lstatSync(path).isDirectory()) {
-    const files = readdirSync(path, 'utf8');
-    for (const file of files) {
-        test_file(path+'/'+file, json, true); // silent
+for (let path = process.argv[path_arg]; 
+     path_arg < process.argv.length;
+     path_arg += 1) {
+
+    if (!existsSync(path)) {
+        console.log("**** Can't find: '"+path+"' in "+process.cwd())
+        continue; }
+    const ptype = lstatSync(path)
+    if (ptype.isDirectory()) {
+        const files = readdirSync(path, 'utf8');
+        for (const file of files) {
+            test_file(path+'/'+file, json, true); // silent
+        }
+    } else if (ptype.isFile()) {
+        test_file(path, json);
     }
-} else {
-    test_file(path, json);
-};
+} // all args done..
 
 // read and compile the grammar -----------------------------------------
 
