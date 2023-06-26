@@ -168,7 +168,8 @@ function SEQ(exp, env) { // [SEQ, min, max, [...exp]]
                     return true;
                 }
                 if (env.pos > start && env.pos > env.fault_pos) {
-                    env.fault_pos = env.pos; 
+                    env.fault_pos = env.pos;
+                    env.fault_tree = env.tree.slice(0);  
                     env.fault_rule = env.rule_names[env.depth];
                     env.fault_exp = exp[3][i];
                 }
@@ -300,7 +301,8 @@ function EXTN(exp, env) { // [EXTN, "<xxx>"]
     const fn = env.extend[key] || builtin(key);
     if (!fn) {
         if (env.pos > env.fault_pos) {
-            env.fault_pos = env.pos; 
+            env.fault_pos = env.pos;
+            env.fault_tree = env.tree.slice(0); 
             env.fault_rule = env.rule_names[env.depth];
             env.fault_exp = "missing extension: "+exp[1];;
         }
@@ -923,8 +925,9 @@ function parse(codex, input, extend, options) {
         rule_names: [], // dynamic stack
         tree: [], // ptree construction
         // fault reporting .........
-        panic: null, // crash
+        panic: '', // crash msg
         fault_pos: -1,
+        fault_tree: [],
         fault_rule: null,
         fault_exp: null,
         // trace reporting .......
@@ -935,7 +938,7 @@ function parse(codex, input, extend, options) {
         start: [],  // env.pos at start of rule
         stack: [],  // env.tree.length
         indent: [], // <indent>
-        result: true // final parse result (false on failure)
+        result: true // final parse result
     }
     if (extend) env.extend = extend;
     if (options) {
@@ -947,7 +950,7 @@ function parse(codex, input, extend, options) {
 
     let err = 0;
     if (env.tree.length !== 1) { // TODO can this happen?
-        env.panic += " bad ptree? ";
+        env.panic += "Bad ptree ...\n";
         err = 1;
     } else if (env.panic) {
         err = 1;
@@ -972,56 +975,11 @@ function parse(codex, input, extend, options) {
     }
 }
 
-// -------------
-
-        // env.result = result;
-        // return {ok:false, env, err: 2, // panic (1=fell short)
-        //         show_err: () => err_report(env)  };
-    // if (env.panic || !result) { // FAIL ...
-//     env.result = result;
-//     return {ok:false, env, err: env.panic? 2 : 3,
-//             show_err: () => err_report(env)  };
-// }
-
-// if (env.pos < input.length && !env.options.short) { // fell short..
-//     err = 3;
-//     env.result = result; // true
-//     return {ok:false, env, err: 1,
-//             show_err: () => err_report(env)  };
-// }
-    // if (!result) {
-        
-        // if (env.fault_pos > -1) {
-        //     report += "In rule: "+env.fault_rule+
-        //         ", expected: "+exp_show(env.fault_exp)+", ";
-        // }
-        // report += "failed at line: "+line_number(input, env.peak)+"\n";
-        // report += line_report(input, env.peak);
-
-        // err += "Parse failed, use: ptree.show_err() for details ...\n";
-
-        // return {ok:false, env, err:report,
-        //         show_err: () => err_report(env, "msg \n")  };
-    // }
-    // if (result && env.pos < input.length) { // fell short ...
-    //     if (env.options.short) return env.tree[0]; // OK
-
-    //     err += "Fell short, use: ptree.show_err() for details ...\n";
-
-    //     // let report = "Fell short at line: "+line_number(input, env.pos)+"\n";
-    //     // report += line_report(input, env.peak);
-
-    //     // return {ok:false, env, err:report,
-    //     //         show_err: () => err_report(env, "Fell short ")  };
-    // }
-
-    // if (env.tree.length !== 1) { // TODO can this happen?
-    //     return {ok:false, err:"bad tree? "+JSON.stringify(env.tree)};
-    // }
-// --------------------
-
 function err_report(env) {
-    let report = '';
+    let report = env.panic;
+    for (let i=0; i<env.fault_tree.length; i+=1) {
+        report += show_tree(env.fault_tree[i])+"\n";
+    }
     if (env.result && env.pos < env.input.length) {
         report += "Fell short at line: "+line_number(env.input, env.pos)+"\n";
     } else {
@@ -1039,24 +997,25 @@ function err_report(env) {
 function compile(grammar, extend, options) {
     const peg = parse(pPEG_codex, grammar, {}, options);
     // console.log(JSON.stringify(peg));
-    if (peg.ok) {
-        try {
-            peg.codex = compiler(peg.ptree[1]);
-            // console.log("codex\n",JSON.stringify(peg.codex));
-        } catch(err) {
-            peg.ok = false;
-            peg.err = err;
-        }
-    }
     if (!peg.ok) {
-        peg.err = "grammar error\n"+peg.err,
+        peg.panic = "grammar error\n"+peg.panic;
         peg.parse = () => peg;
         return peg;
     }
-    const parser = function parser(input, options) {
+    try {
+        peg.codex = compiler(peg.ptree[1]);
+        // console.log("codex\n",JSON.stringify(peg.codex));
+    } catch(err) {
+        peg.ok = false;
+        peg.parse = () => peg;
+        peg.show_err = () => "grammar compile error\n"+err;
+        return peg;
+    }
+    peg.parse = function parser(input, options) {
         return parse(peg.codex, input, extend, options);
     }
-    return { ok: true, peg, parse: parser };
+    peg.show_err = () => "No grammar errors ...";
+    return peg;
 }
 
 const peg = { compile, show_tree };
