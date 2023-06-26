@@ -1,0 +1,31 @@
+# Test failures...
+==================
+s   = 'a' x 'b'
+x   = '' y 'z'
+y   = x
+---- not
+ayb
+================== not
+# missing rules...
+s  = x y z
+x  = 'x'
+-------- not
+xxx
+===============
+s  = x y z
+x  = 'x'
+y  = s x
+z  = 'z'
+-------- not
+xxx
+-------- not
+xyzx
+============
+date  = year '-' month '-' day
+year  = [1-2] [0-9]*3
+month = [0-1] [0-9]
+day   = [0-3] [0-9]
+----
+2021-04-05
+---- not
+2021-04/05
