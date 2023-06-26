@@ -322,17 +322,30 @@ function EXTN(exp, env) { // [EXTN, "<xxx>"]
 // bultins -- predefined extension functions -------------------------------
 
 const builtins = {
-    "?": trace_trigger,
+    "?": dump_trace,
+    "trace": trace_trigger, // deprecate trace...?
     "@": same_match, // deprecate?
     eq: same_match, // deprecate
     at: same_match, // TODO -- chk undefined extn working?
-    infix,
+    infix, // pratt op exp
     quote, quoter,
     indent: ext_indent, inset: ext_inset, undent: ext_undent,
 }
 
 function builtin(key) {
     return builtins[key] || undefined;
+}
+
+// <?> dump trace -----------------------------------------
+
+function dump_trace(exp, env) {
+    let report = "<?> at line: "+line_number(env.input, env.pos)+"\n";
+    for (let i=0; i<env.tree.length; i+=1) {
+        report += show_tree(env.tree[i])+"\n";
+    }       
+    report += line_report(env.input, env.pos);
+    console.log(report);
+    return true;
 }
 
 // <infix> -------------------------------------------------
@@ -632,6 +645,7 @@ function exp_show(exp) {
             let xs = args.map(exp_show);
             return "("+xs.join(" ")+")"+sfx_show(min,max);
         };
+        case EXTN: return exp[1];
         default: return "(...)";
     }
 }

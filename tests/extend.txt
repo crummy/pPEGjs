@@ -1,0 +1,28 @@
+# Extensions
+
+# <at x> should match same input as prior x sibling match.
+# empty match if no prior node in the parse tree.
+
+    s = x '-' <at x>
+    x = 'x'+
+-------------------------
+x-x
+---------
+xxx-xxx
+-------- not
+xxx-xx
+-------- not
+xx-xxx
+==============================
+    s = x '-' <at x> 'x'+
+    x = 'x'+
+--------------------
+xxx-xxxxx
+============================
+s  = ab <?> c
+ab = a b
+a  = 'a'
+b  = 'b'
+c  = 'c'
+-------------
+abc
