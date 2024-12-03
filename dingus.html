@@ -3,19 +3,29 @@
 <head>
 <meta lang=en charset="UTF-8">
 <style>
-    .box { display:flex; flex-wrap: wrap;  }
-    .grammar, .input, .output {
-        flex:auto;
-        width:400px; margin: 2px;
-        border:thin solid gray;
+    .box { 
+        display:flex; 
+        flex-wrap: wrap; 
     }
-    .header { position: relative; top:0px; height:20px;
+    .grammar, .input, .output {
+        min-width: 200px;
+        min-height: 200px;
+        flex: auto;
+        width: max-content;
+        margin: 2px;
+        border: thin solid gray;
+    }
+    .header {
         padding:5px;
         border-bottom: thin solid gray; 
         background: whitesmoke;
     }
-    .header > button {float:right;}
-    .header > .examples {float:right;}
+    .header > button {
+        float:right;
+    }
+    .header > .examples {
+        float:right;
+    }
     #grammar, #input, #output {
         position: relative;
         height:250px;
@@ -23,7 +33,9 @@
         white-space:pre-wrap; margin:2px;
         padding:5px;
         resize:both; overflow:auto;
+        background-color: lightslategray; /** just for visibility **/
     }
+
 </style>
 <script type='module'>
     import peg from './pPEG.mjs';
