@@ -1,39 +1,60 @@
 <!DOCTYPE HTML>
-<html>
+<html lang="en">
 <head>
+<title>pPEG Dingus</title>
 <meta lang=en charset="UTF-8">
 <style>
-    .box { 
-        display:flex; 
-        flex-wrap: wrap; 
+    .box {
+        display: flex;
+        flex-wrap: wrap;
     }
+
     .grammar, .input, .output {
         min-width: 200px;
         min-height: 200px;
         flex: auto;
-        width: max-content;
         margin: 2px;
         border: thin solid gray;
     }
+
     .header {
-        padding:5px;
-        border-bottom: thin solid gray; 
+        padding: 5px;
+        border-bottom: thin solid gray;
         background: whitesmoke;
     }
+
     .header > button {
-        float:right;
+        float: right;
     }
+
     .header > .examples {
-        float:right;
+        float: right;
     }
+
     #grammar, #input, #output {
-        position: relative;
-        height:250px;
+        min-height: 250px;
         font-family: "Courier Line Draw", "Courier Prime", "Courier New", monospace;
-        white-space:pre-wrap; margin:2px;
-        padding:5px;
-        resize:both; overflow:auto;
-        background-color: lightslategray; /** just for visibility **/
+        white-space: pre-wrap;
+        margin: 2px;
+        padding: 5px;
+        resize: vertical;
+        overflow: auto;
+    }
+
+    .width-adjuster {
+        width: 20px;
+        padding: 0;
+        cursor: ew-resize;
+        flex: 0 0 auto;
+    }
+
+    .width-adjuster::before {
+        content: '';
+        display: block;
+        width: 4px;
+        height: 100%;
+        background: lightslategray;
+        margin: 0 auto;
     }
 
 </style>
@@ -45,7 +66,7 @@
             const grammar = document.getElementById('grammar'),
              parser = peg.compile(grammar.textContent),
              input = document.getElementById('input'),
-             parse = parser.parse(input.innerText), //textContent),
+             parse = parser.parse(input.innerText),
              output = document.getElementById('output');
             if (parse.ok) output.textContent = parse.show_ptree(); // TODO json?
             else output.textContent = parse.show_err();
@@ -54,7 +75,7 @@
             const eg = document.getElementById('examples'),
                 grammar = document.getElementById('grammar'),
                 input = document.getElementById('input');
-            grammar.textContent = document.getElementById(eg.value+'-grammar').textContent,
+            grammar.textContent = document.getElementById(eg.value+'-grammar').textContent;
             input.textContent = document.getElementById(eg.value+'-input').textContent;
             dingus.run();
         },
@@ -96,6 +117,7 @@ day   = [0-3][0-9]
             </div>
         </div>
     </div>
+    <div class="width-adjuster"></div>
     <div class='input'>
         <div class='bag'>
             <div class='header'>
@@ -105,6 +127,7 @@ day   = [0-3][0-9]
             <div id='input' contenteditable='true'>2021-03-04</div>
         </div>
     </div>
+    <div class="width-adjuster"></div>
     <div class='output'>
         <div class='bag'>
             <div class='header'>Parse Tree</div>
@@ -124,13 +147,13 @@ day   = [0-3][0-9]
 # This Dingus is only a toy web-page.
 # To try your own pPEG grammars use
 # the peg-play.mjs command line tool,
-# that lets you work on your own files. 
+# that lets you work on your own files.
 </div>
 <div hidden id='date-input'>2021-02-03</div>
 
 <div hidden id='url-grammar'># Equivalent to the regular expression for
 # well-formed URI's in RFC 3986.
-URI     = (scheme ':')? ('//' auth)? 
+URI     = (scheme ':')? ('//' auth)?
           path ('?' query)? ('#' frag)?
 scheme  = ~[:/?#]+
 auth    = ~[/?#]*
@@ -177,4 +200,51 @@ _      = [ \t\n\r]*
 
 <div>Copyright 2024</div>
 </body>
+<script>
+    // Adds interactivity to the resize handlers between our input divs
+
+    // adopted from https://stackoverflow.com/a/46934825
+    for (let handler of document.querySelectorAll('.width-adjuster')) {
+        const boxA = handler.previousElementSibling // expecting a .grammar, .input, or .output div
+        let isHandlerDragging = false;
+
+        document.addEventListener('mousedown', function(e) {
+            // If mousedown event is fired from .handler, toggle flag to true
+            if (e.target === handler) {
+                isHandlerDragging = true;
+            }
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            // Don't do anything if dragging flag is false
+            if (!isHandlerDragging) {
+                return false;
+            }
+
+            // Get offset
+            const containerOffsetLeft = boxA.offsetLeft;
+
+            // Get x-coordinate of pointer relative to container
+            const pointerRelativeXpos = e.clientX - containerOffsetLeft;
+
+            // Arbitrary minimum width set on box A, otherwise its inner content will collapse to width of 0
+            const boxAminWidth = 60;
+
+            // Resize box A
+            // * 8px is the left/right spacing between .handler and its inner pseudo-element
+            // * Set flex-grow to 0 to prevent it from growing
+            boxA.style.width = (Math.max(boxAminWidth, pointerRelativeXpos - 8)) + 'px';
+            // we also need to disable flexGrow for all sibling inputs, or they might try to grow into our shrunk space
+            // TODO we should do this per-row, so the last element in a row always grows to reach the end, upon mouseup
+            for (let el of document.querySelectorAll(".grammar, .input")) {
+                el.style.flexGrow = "0";
+            }
+        });
+
+        document.addEventListener('mouseup', function(e) {
+            // Turn off dragging flag when user mouse is up
+            isHandlerDragging = false;
+        });
+    }
+</script>
 </html>
