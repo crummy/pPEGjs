@@ -4,15 +4,22 @@
 <title>pPEG Dingus</title>
 <meta lang=en charset="UTF-8">
 <style>
+
     .box {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: auto auto auto;
+    }
+
+    /* On small screens, show inputs in a colum. */
+    @media (max-width: 600px) {
+        .box {
+            grid-template-columns: auto;
+        }
     }
 
     .grammar, .input, .output {
         min-width: 200px;
         min-height: 200px;
-        flex: auto;
         margin: 2px;
         border: thin solid gray;
     }
@@ -21,14 +28,10 @@
         padding: 5px;
         border-bottom: thin solid gray;
         background: whitesmoke;
-    }
-
-    .header > button {
-        float: right;
-    }
-
-    .header > .examples {
-        float: right;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 1.4em;
     }
 
     #grammar, #input, #output {
@@ -41,20 +44,11 @@
         overflow: auto;
     }
 
-    .width-adjuster {
-        width: 20px;
-        padding: 0;
-        cursor: ew-resize;
-        flex: 0 0 auto;
-    }
-
-    .width-adjuster::before {
-        content: '';
-        display: block;
-        width: 4px;
-        height: 100%;
-        background: lightslategray;
-        margin: 0 auto;
+    /* On a small screen, inputs should not be scrollable - instead, just grow their content with input text*/
+    @media (max-width: 600px) {
+        #grammar, #input, #output {
+            overflow: visible;
+        }
     }
 
 </style>
@@ -117,7 +111,6 @@ day   = [0-3][0-9]
             </div>
         </div>
     </div>
-    <div class="width-adjuster"></div>
     <div class='input'>
         <div class='bag'>
             <div class='header'>
@@ -127,7 +120,6 @@ day   = [0-3][0-9]
             <div id='input' contenteditable='true'>2021-03-04</div>
         </div>
     </div>
-    <div class="width-adjuster"></div>
     <div class='output'>
         <div class='bag'>
             <div class='header'>Parse Tree</div>
@@ -201,50 +193,35 @@ _      = [ \t\n\r]*
 <div>Copyright 2024</div>
 </body>
 <script>
-    // Adds interactivity to the resize handlers between our input divs
+    // Keep all inputs the same height - resize them in parallel.
 
-    // adopted from https://stackoverflow.com/a/46934825
-    for (let handler of document.querySelectorAll('.width-adjuster')) {
-        const boxA = handler.previousElementSibling // expecting a .grammar, .input, or .output div
-        let isHandlerDragging = false;
-
-        document.addEventListener('mousedown', function(e) {
-            // If mousedown event is fired from .handler, toggle flag to true
-            if (e.target === handler) {
-                isHandlerDragging = true;
+    const editors = document.querySelectorAll("#output, #input, #grammar");
+    // This observer will call the callback when any of the elements it is observing are resized.
+    const observer = new ResizeObserver(entries => {
+        // No point in keeping them aligned if the window is too small - in this case inputs will be in a column, not a
+        // row.
+        if (window.innerWidth <= 600) return;
+        for (const {target} of entries) {
+            for (let editor of editors) {
+                // We have the measured height of the new element, which includes padding.
+                // But the CSS height that we set is the content height, without padding.
+                // So we get the "inner" height by subtracting the padding.
+                const newHeight = getInnerHeight(target) + "px";
+                if (editor.style.height !== newHeight) {
+                    editor.style.height = newHeight;
+                }
             }
-        });
+        }
+    });
+    for (let node of editors) {
+        observer.observe(node)
+    }
 
-        document.addEventListener('mousemove', function(e) {
-            // Don't do anything if dragging flag is false
-            if (!isHandlerDragging) {
-                return false;
-            }
+    function getInnerHeight(element) {
+        const height = element.offsetHeight
+        const style = window.getComputedStyle(element)
 
-            // Get offset
-            const containerOffsetLeft = boxA.offsetLeft;
-
-            // Get x-coordinate of pointer relative to container
-            const pointerRelativeXpos = e.clientX - containerOffsetLeft;
-
-            // Arbitrary minimum width set on box A, otherwise its inner content will collapse to width of 0
-            const boxAminWidth = 60;
-
-            // Resize box A
-            // * 8px is the left/right spacing between .handler and its inner pseudo-element
-            // * Set flex-grow to 0 to prevent it from growing
-            boxA.style.width = (Math.max(boxAminWidth, pointerRelativeXpos - 8)) + 'px';
-            // we also need to disable flexGrow for all sibling inputs, or they might try to grow into our shrunk space
-            // TODO we should do this per-row, so the last element in a row always grows to reach the end, upon mouseup
-            for (let el of document.querySelectorAll(".grammar, .input")) {
-                el.style.flexGrow = "0";
-            }
-        });
-
-        document.addEventListener('mouseup', function(e) {
-            // Turn off dragging flag when user mouse is up
-            isHandlerDragging = false;
-        });
+        return height - parseInt(style.paddingTop) - parseInt(style.paddingBottom)
     }
 </script>
 </html>
