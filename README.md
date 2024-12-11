@@ -96,6 +96,6 @@ The `ptree` parse tree type is JSON data, as defined in [pPEG].
 
 
 [pPEG]: https://github.com/pcanz/pPEG
-[dingus]: https://pcanz.github.io/pPEGjs/dingus.html
-[peg-play]: https://github.com/pcanz/pPEGjs/blob/master/play/about-peg-play.md
+[dingus]: TODO (mc)
+[peg-play]: play/about-peg-play.md
 [INDEX]: https://github.com/pcanz/pPEG/blob/master/INDEX.md
