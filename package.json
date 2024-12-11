@@ -1,0 +1,29 @@
+{
+  "name": "ppegjs",
+  "version": "0.1.1",
+  "description": "A portable Parser Expression Grammar.",
+  "main": "index.js",
+  "directories": {
+    "example": "examples",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "node peg-play.mjs tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crummy/pPEGjs.git"
+  },
+  "keywords": [
+    "ppeg",
+    "parser",
+    "expression",
+    "grammar"
+  ],
+  "author": "Peter Cashin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pcanz/pPEGjs/issues"
+  },
+  "homepage": "https://github.com/pcanz/pPEGjs#readme"
+}
