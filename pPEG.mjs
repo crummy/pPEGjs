@@ -109,7 +109,7 @@ function ID(exp, env) { // [ID, idx, name]
     if (name[0] === '_') { // no results required..
         if (env.tree.length > stack) { // nested rule results...
             env.tree = env.tree.slice(0, stack); // deleted
-        } 
+        }
         if (env.trace) trace_result(exp, env, true, start);
         return true;
     }
@@ -141,7 +141,7 @@ function ALT(exp, env) { // [ALT, [...exp], [...guards]]
         }
         const arg = exp[1][i];
         const result = arg[0](arg, env);
-        if (result) return true; 
+        if (result) return true;
         if (env.tree.length > stack) {
             env.tree = env.tree.slice(0, stack);
         }
@@ -164,12 +164,12 @@ function SEQ(exp, env) { // [SEQ, min, max, [...exp]]
                     env.pos = start;
                     if (env.tree.length > stack) {
                         env.tree = env.tree.slice(0, stack);
-                    }            
+                    }
                     return true;
                 }
                 if (env.pos > start && env.pos > env.fault_pos) {
                     env.fault_pos = env.pos;
-                    env.fault_tree = env.tree.slice(0);  
+                    env.fault_tree = env.tree.slice(0);
                     env.fault_rule = env.rule_names[env.depth];
                     env.fault_exp = exp[3][i];
                 }
@@ -241,7 +241,7 @@ function SQ(exp, env) { // [SQ, icase, "..."]
     let pos = env.pos;
     for (let i=0; i < len; i+=1) {
         let char = input[pos]; // undefined if pos >= input.length
-        if (icase && pos < input.length) char = char.toUpperCase();  
+        if (icase && pos < input.length) char = char.toUpperCase();
         if (str[i] !== char) {
             env.pos = start;
             if (env.trace) trace_chars_fail(exp, env);
@@ -287,7 +287,7 @@ function CHS(exp, env) { // [CHS, neg, min, max, str]
     env.pos = pos;
     if (pos > env.peak) env.peak = pos;
     if (env.trace) trace_chars_match(exp, env, start);
-    return true; 
+    return true;
 }
 
 function EXTN(exp, env) { // [EXTN, "<xxx>"]
@@ -302,7 +302,7 @@ function EXTN(exp, env) { // [EXTN, "<xxx>"]
     if (!fn) {
         if (env.pos > env.fault_pos) {
             env.fault_pos = env.pos;
-            env.fault_tree = env.tree.slice(0); 
+            env.fault_tree = env.tree.slice(0);
             env.fault_rule = env.rule_names[env.depth];
             env.fault_exp = "missing extension: "+exp[1];;
         }
@@ -342,7 +342,7 @@ function dump_trace(exp, env) {
     let report = "<?> at line: "+line_number(env.input, env.pos)+"\n";
     for (let i=0; i<env.tree.length; i+=1) {
         report += show_tree(env.tree[i])+"\n";
-    }       
+    }
     report += line_report(env.input, env.pos);
     console.log(report);
     return true;
@@ -355,14 +355,14 @@ function infix(exp, env) {
     if (env.tree.length - stack < 3) return true
     let next = stack-1; // tree stack index
     env.tree[stack] = pratt(0);
-    env.tree.length = stack+1;  
+    env.tree.length = stack+1;
     return true;
 
     function pratt(lbp) {
         let result = env.tree[next+=1];
         while (true) {
             const op = env.tree[next+=1];
-            let rbp = op? 0 : -1, 
+            let rbp = op? 0 : -1,
                 sfx = op? op[0].slice(-3) : undefined;
             if (sfx && sfx[0] === '_') {  // _xL or _xR
                 let x = sfx.charCodeAt(1);
@@ -402,7 +402,7 @@ function same_match(exp, env) { // <eq name>, deprecate <@name>
     if (env.input.startsWith(prior, env.pos)) {
         env.pos += prior.length;
         return true;
-    }    
+    }
     return false;
 }
 
@@ -503,7 +503,7 @@ function lines_before(str, ln, i, j, n) {
         n -= 1;
         if (i === 0 || n === 0) return before;
         ln -= 1;
-        if (i>0 && str[i-1] === "\n") i -= 1;   
+        if (i>0 && str[i-1] === "\n") i -= 1;
         if (i>0 && str[i-1] === "\r") i -= 1;
         j = i;
         while (i > 0 && str[i-1] !== "\n" && str[i-1] !== "\r") i-=1;
@@ -515,7 +515,7 @@ function lines_after(str, ln, i, n) {
     while (n>0 && i < str.length) {
         ln += 1;
         let j = i;
-        if (str[j] === "\n") j += 1;   
+        if (str[j] === "\n") j += 1;
         if (j < str.length && str[j] === "\r") j += 1;
         let k = j;
         while (k < str.length && str[k] !== "\n" && str[k] !== "\r") k+=1;
@@ -573,7 +573,7 @@ function trace_rep(exp, env) {
 
 function trace_chars_match(exp, env, start) {
     if (env.trace_depth === -1) return; // not active
-    trace_report(indent(env)+exp_show(exp)+" == "+ 
+    trace_report(indent(env)+exp_show(exp)+" == "+
         show_input(env, start, env.pos));
 }
 
@@ -670,7 +670,7 @@ function str_esc(s) {
             let n = c.charCodeAt(0);
             let xxxx = n.toString(16);
             while (xxxx.length < 4) xxxx = '0'+xxxx;
-            r += "\\u"+xxxx; 
+            r += "\\u"+xxxx;
         }
     }
     return r;
@@ -678,12 +678,16 @@ function str_esc(s) {
 
 //  compiler -- ptree rules => instruction code ----------------------------
 
-function compiler(rules) { // -> {rules, names, code, start}
+/**
+ * @param {Array} rules
+ * @returns {Codex} codex
+ */
+function compiler(rules) {
     let names = {}, first;
     for (let i=0; i<rules.length; i+=1) {
         const [_rule, [[_id, name], _exp]] = rules[i];
         if (i==0) first = name;
-        names[name] = i;  
+        names[name] = i;
     }
     let start = [ID, 0, first]; // start rule
     let code = [];
@@ -691,7 +695,7 @@ function compiler(rules) { // -> {rules, names, code, start}
         const [_rule, [[_id, name], exp]] = rule;
         code.push(emit(exp));
     }
-    for (let i=0; i<code.length; i+=1) { 
+    for (let i=0; i<code.length; i+=1) {
         optimize(code[i], code);
     }
     // let space, sp = names["_space_"];
@@ -704,7 +708,7 @@ function compiler(rules) { // -> {rules, names, code, start}
                 const name = exp[1],
                     index = names[name];
                 if (index === undefined) throw "Undefined rule: "+name;
-                return [ID, index, name];                
+                return [ID, index, name];
             }
             case "alt": return [ALT, exp[1].map(emit)];
             case "seq": return [SEQ, 1, 1, exp[1].map(emit)];
@@ -730,7 +734,7 @@ function compiler(rules) { // -> {rules, names, code, start}
                         return [CHS, false, min, max, str];
                     }
                 }
-                return [REP, min, max, expr]; 
+                return [REP, min, max, expr];
             };
             case "pre": {
                 const [[_pfx, pfx], term] = exp[1];
@@ -744,11 +748,11 @@ function compiler(rules) { // -> {rules, names, code, start}
                         if (!neg) return [CHS, true, min, max, str];
                     }
                 }
-                return [PRE, pfx, expr]; 
+                return [PRE, pfx, expr];
             };
             // case "sq": return sq_dq(SQ, exp[1]);
             // case "dq": return sq_dq(DQ, exp[1]);
- 
+
             case "sq": {
                 const txt = exp[1];
                 const icase = txt.slice(-1) === "i";
@@ -763,7 +767,7 @@ function compiler(rules) { // -> {rules, names, code, start}
                 str = escape_codes(str);
                 return [CHS, false, 1, 1, str];
             };
-            
+
             case "extn": return [EXTN, exp[1]];
 
             default: throw "Undefined ptree node: " + exp;
@@ -777,7 +781,7 @@ function compiler(rules) { // -> {rules, names, code, start}
         if (suffix === "sfx") {
             if (sfx === "+") { min = 1; }
             else if (sfx === "?") { max = 1; }
-        } else if (suffix === "num") { 
+        } else if (suffix === "num") {
             min =  parseInt(sfx, 10);  max = min;
         } else if (suffix === "range") { // *N..M
             // ["range", [[num, min],["dots", ".."]]]
@@ -811,7 +815,7 @@ function compiler(rules) { // -> {rules, names, code, start}
             default: return;
         }
     }
-    
+
     function first_char(exp, code) {
         switch (exp[0]) { // TODO empty sq return undefined...
             case ID: {
@@ -865,6 +869,11 @@ function escape_codes(str) {
 
 // -- pretty print ptree ----------------------------------------------
 
+/**
+ * @param {Array} ptree
+ * @param {boolean=false} json
+ * @returns {string}
+ */
 function show_tree(ptree, json=false) {
     if (!ptree) return "";
     if (json) return show_json(ptree);
@@ -895,6 +904,9 @@ function show_ptree(ptree, inset, last) {
     }
 }
 
+/**
+ * @returns {string}
+ */
 function show_json(ptree, inset='') {
     if (!ptree) return "";
     // if (!inset) inset = '';
@@ -925,6 +937,52 @@ function trace_report(report) {
     console.log(report); // TODO output in env ?
 }
 
+/**
+ * @typedef {Object} Codex
+ * @property {Object} names
+ * @property {Array} code
+ * @property {((function(*, *): (boolean))|*|number)[]} start
+ * @property rules
+ */
+
+/**
+ * @typedef {Object} ParseSuccess
+ * @property {true} ok
+ * @property {() => string} show_err
+ * @property {(boolean: false) => string} show_ptree
+ * @property {0} err
+ * @property {Object} ptree
+ */
+
+/**
+ * @typedef {Object} ParseFailure
+ * @property {false} ok
+ * @property {() => string} show_err
+ * @property {number} err
+ * @property {Object} env
+ */
+
+/**
+ * @typedef {Object} Options
+ * @property {boolean} trace
+ * @property {boolean} short
+ */
+
+/**
+ * Environment configuration object
+ * @typedef {Object} Env
+ * @property {boolean} trace
+ * @property {boolean} short
+ * @property {Options} options
+ */
+
+/**
+ * @param {Object} codex
+ * @param {Object} input
+ * @param {Object} extend
+ * @param {Options} options
+ * @return { ParseSuccess | ParseFailure }
+ */
 function parse(codex, input, extend, options) {
     let env = {
         codex, // {rules, names, code, start}
@@ -977,13 +1035,17 @@ function parse(codex, input, extend, options) {
     if (err > 0) { // returns env for show_err to sort out later
         env.result = result;
         return {
-            ok:false, env, err,
+            ok: false,
+            env,
+            err,
             show_err: () => err_report(env)
         }
     }
 
     return {
-        ok: true, err: 0, ptree: env.tree[0], 
+        ok: true,
+        err: 0,
+        ptree: env.tree[0],
         show_ptree: (json=false) => show_tree(env.tree[0], json),
         show_err: () => "No errors to report...\n"
     }
@@ -1002,34 +1064,65 @@ function err_report(env) {
             report += "in rule: "+env.fault_rule+
                 ", expected: "+exp_show(env.fault_exp)+", ";
         }
-        report += "at line: "+line_number(env.input, env.peak)+"\n";       
+        report += "at line: "+line_number(env.input, env.peak)+"\n";
     }
     report += line_report(env.input, env.peak);
     return report;
 }
 
+
+/**
+ * @typedef CompileSuccess
+ * @extends ParseSuccess
+ * @property {boolean} ok
+ * @property {(input: any, options?: any) => any} parse
+ */
+
+/**
+ * @typedef CompileFailure
+ * @extends ParseFailure
+ * @param {String} panic
+ * @param {() => any} parse
+ */
+
+/**
+ *
+ * @param {String} grammar
+ * @param {Object?} extend
+ * @param {Object?} options
+ * @returns {(CompileSuccess|CompileFailure)}
+ */
 function compile(grammar, extend, options) {
     const peg = parse(pPEG_codex, grammar, {}, options);
     // console.log(JSON.stringify(peg));
     if (!peg.ok) {
-        peg.panic = "grammar error\n"+peg.panic;
-        peg.parse = () => peg;
-        return peg;
+        return {
+            show_err: peg.show_err,
+            env: peg.env,
+            err: peg.err,
+            ok: false,
+            panic: "grammar error\n"+peg.panic,
+            parse: () => peg
+        }
     }
     try {
         peg.codex = compiler(peg.ptree[1]);
         // console.log("codex\n",JSON.stringify(peg.codex));
     } catch(err) {
-        peg.ok = false;
-        peg.parse = () => peg;
-        peg.show_err = () => "grammar compile error\n"+err;
-        return peg;
+        return {
+            err: 1,
+            ok: false,
+            parse: () => peg,
+            show_err: () => "grammar compile error\n"+err,
+        }
     }
-    peg.parse = function parser(input, options) {
-        return parse(peg.codex, input, extend, options);
+    return {
+        err: 0,
+        show_ptree: peg.show_ptree,
+        ok: true,
+        parse: (input, options) => parse(peg.codex, input, extend, options),
+        show_err: () => "No grammar errors ...",
     }
-    peg.show_err = () => "No grammar errors ...";
-    return peg;
 }
 
 const peg = { compile, show_tree };
