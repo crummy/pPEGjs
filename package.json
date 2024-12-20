@@ -1,8 +1,9 @@
 {
   "name": "ppegjs",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A portable Parser Expression Grammar.",
   "main": "index.js",
+  "type": "module",
   "directories": {
     "example": "examples",
     "test": "tests"
