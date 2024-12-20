@@ -187,8 +187,7 @@ function SEQ(exp, env) { // [SEQ, min, max, [...exp]]
 function REP(exp, env) { // [REP, min, max, exp]
     if (env.trace) trace_rep(exp, env);
     const [_rep, min, max, expr] = exp;
-    const start = env.pos,
-        stack = env.tree.length;
+    const stack = env.tree.length;
     let count = 0, pos = env.pos;
     while (true) { // min..max        
         const result = expr[0](expr, env);
@@ -304,7 +303,7 @@ function EXTN(exp, env) { // [EXTN, "<xxx>"]
             env.fault_pos = env.pos;
             env.fault_tree = env.tree.slice(0);
             env.fault_rule = env.rule_names[env.depth];
-            env.fault_exp = "missing extension: "+exp[1];;
+            env.fault_exp = "missing extension: "+exp[1];
         }
         return false;
     }
@@ -590,7 +589,7 @@ function trace_pre(exp, env, result) {
     trace_report(indent(env)+exp_show(term)+flag);
 }
 
-function trace_extn(exp, env, result) {
+function trace_extn(exp, env) {
     if (env.trace_depth === -1) return; // not active
     trace_report(indent(env)+exp[1]);
 }
@@ -959,59 +958,77 @@ function trace_report(report) {
  * @property {false} ok
  * @property {() => string} show_err
  * @property {number} err
- * @property {Object} env
+ * @property {Env} env
  */
 
 /**
  * @typedef {Object} Options
- * @property {boolean} trace
- * @property {boolean} short
+ * @property {boolean?} trace
+ * @property {boolean?} short
  */
 
 /**
  * Environment configuration object
  * @typedef {Object} Env
  * @property {boolean} trace
- * @property {boolean} short
  * @property {Options} options
+ * @property {string} panic
+ * @property {Array} fault_tree
+ * @property {boolean} result
+ * @property {number} pos
+ * @property {string} input
+ * @property {number} fault_pos
+ * @property {string | null} fault_rule
+ * @property {string | null} fault_exp
+ * @property {number} peak
+ * @property {number} trace_depth
+ * @property {Array} tree
  */
 
 /**
+ *
+ * @param codex
+ * @param {string} input
+ * @returns Env
+ */
+const defaultEnv = (codex, input) => ({
+    codex, // {rules, names, code, start}
+    code: codex.code,
+    extend: {},
+    options: {},
+    input,
+    pos: 0,
+    peak: 0, // pos high water mark
+    depth: 0, // rule recursion
+    max_depth: 100,
+    rule_names: [], // dynamic stack
+    tree: [], // ptree construction
+    // fault reporting .........
+    panic: '', // crash msg
+    fault_pos: -1,
+    fault_tree: [],
+    fault_rule: null,
+    fault_exp: null,
+    // trace reporting .......
+    trace: false, // rule name or true
+    trace_depth: -1, // active trace depth
+    // trace_log: [], // trace report
+    // extensions ..........
+    start: [],  // env.pos at start of rule
+    stack: [],  // env.tree.length
+    indent: [], // <indent>
+    result: true // final parse result
+})
+
+/**
  * @param {Object} codex
- * @param {Object} input
+ * @param {string} input
  * @param {Object} extend
  * @param {Options} options
  * @return { ParseSuccess | ParseFailure }
  */
 function parse(codex, input, extend, options) {
-    let env = {
-        codex, // {rules, names, code, start}
-        code: codex.code,
-        extend: {},
-        options: {},
-        input,
-        pos: 0,
-        peak: 0, // pos high water mark
-        depth: 0, // rule recursion
-        max_depth: 100,
-        rule_names: [], // dynamic stack
-        tree: [], // ptree construction
-        // fault reporting .........
-        panic: '', // crash msg
-        fault_pos: -1,
-        fault_tree: [],
-        fault_rule: null,
-        fault_exp: null,
-        // trace reporting .......
-        trace: false, // rule name or true
-        trace_depth: -1, // active trace depth
-        // trace_log: [], // trace report
-        // extensions ..........
-        start: [],  // env.pos at start of rule
-        stack: [],  // env.tree.length
-        indent: [], // <indent>
-        result: true // final parse result
-    }
+    const env = defaultEnv(codex, input);
     if (extend) env.extend = extend;
     if (options) {
         env.options = options;
@@ -1051,6 +1068,11 @@ function parse(codex, input, extend, options) {
     }
 }
 
+/**
+ *
+ * @param {Env} env
+ * @returns {string}
+ */
 function err_report(env) {
     let report = env.panic;
     for (let i=0; i<env.fault_tree.length; i+=1) {
@@ -1075,7 +1097,7 @@ function err_report(env) {
  * @typedef CompileSuccess
  * @extends ParseSuccess
  * @property {boolean} ok
- * @property {(input: any, options?: any) => any} parse
+ * @property {(input: string, options?: any) => any} parse
  */
 
 /**
