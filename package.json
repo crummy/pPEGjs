@@ -9,7 +9,8 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "node peg-play.mjs tests"
+    "test": "node peg-play.mjs tests",
+    "format": "biome format --write pPEG.mjs"
   },
   "repository": {
     "type": "git",
@@ -26,5 +27,8 @@
   "bugs": {
     "url": "https://github.com/pcanz/pPEGjs/issues"
   },
-  "homepage": "https://github.com/pcanz/pPEGjs#readme"
+  "homepage": "https://github.com/pcanz/pPEGjs#readme",
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4"
+  }
 }
