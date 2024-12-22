@@ -1220,7 +1220,6 @@ function err_report(env) {
  */
 function compile(grammar, extend, options) {
 	const peg = parse(pPEG_codex, grammar, {}, options);
-	// console.log(JSON.stringify(peg));
 	if (!peg.ok) {
 		return {
 			show_err: peg.show_err,
@@ -1233,7 +1232,6 @@ function compile(grammar, extend, options) {
 	}
 	try {
 		peg.codex = compiler(peg.ptree[1]);
-		// console.log("codex\n",JSON.stringify(peg.codex));
 	} catch (err) {
 		return {
 			err: 1,

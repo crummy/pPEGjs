@@ -46,7 +46,7 @@ Multiple grammars with their tests can be separated with:<br>
 ========================<br>
 a line with at least 4 ==== chars.
 
-WHen reading a grammar any intial comment lines (starting with #)
+WHen reading a grammar any initial comment lines (starting with #)
 will be stripped off, and if there are no grammar rules then this
 grammar block is skipped over as comments in the test file. 
 
@@ -77,165 +77,191 @@ grammar block is skipped over as comments in the test file.
 
 `; // doco
 
-import peg from './pPEG.mjs' // <== EDIT.ME to relocate
+import peg from "./pPEG.mjs"; // <== EDIT.ME to relocate
 
-import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
+import process from "node:process";
 
 // check command line args ----------------------------
 
-let json = false     // -j json, default pretty print ptree
+let json = false; // -j json, default pretty print ptree
 let bad_opt = false; // if -x undefined
 
-let path_arg = 2 // argv first cmd arg
+let path_arg = 2; // argv first cmd arg
 
-const args = process.argv.length - 2
+const args = process.argv.length - 2;
 
-if (args > 0) { // check for option...
-    const arg1 = process.argv[2]
-    if (arg1.startsWith('-')) {
-        path_arg += 1;
-        if (arg1.startsWith('-h')) { // -help doco ....
-            console.log(doco);
-            process.exit(1);
-        }
-        if (arg1.startsWith('-j')) json = true;
-        else bad_opt = true;
-    }
+if (args > 0) {
+	// check for option...
+	const arg1 = process.argv[2];
+	if (arg1.startsWith("-")) {
+		path_arg += 1;
+		if (arg1.startsWith("-h")) {
+			// -help doco ....
+			console.log(doco);
+			process.exit(1);
+		}
+		if (arg1.startsWith("-j")) json = true;
+		else bad_opt = true;
+	}
 }
 
 if (args < 1 || bad_opt) {
-    console.log("Useage: -option? path-name (file or directory)\n"+
-                "  option:\n"+
-                "     -j, -json for json format ptree\n"+
-                "     -h, -help for more info.\n");
-    process.exit(1);
+	console.log(
+		"Usage: -option? path-name (file or directory)\n" +
+			"  option:\n" +
+			"     -j, -json for json format ptree\n" +
+			"     -h, -help for more info.\n",
+	);
+	process.exit(1);
 }
 
 // OK run tests ---------------------------------------
 
-for (let path = process.argv[path_arg]; 
-     path_arg < process.argv.length;
-     path_arg += 1) {
-
-    if (!existsSync(path)) {
-        console.log("**** Can't find: '"+path+"' in "+process.cwd())
-        continue; }
-    const ptype = lstatSync(path)
-    if (ptype.isDirectory()) {
-        const files = readdirSync(path, 'utf8');
-        for (const file of files) {
-            test_file(path+'/'+file, json, true); // silent
-        }
-    } else if (ptype.isFile()) {
-        test_file(path, json);
-    }
+let failure = 0;
+for (
+	let path = process.argv[path_arg];
+	path_arg < process.argv.length;
+	path_arg += 1
+) {
+	if (!existsSync(path)) {
+		console.log(`**** Can't find: '${path}' in ${process.cwd()}`);
+		continue;
+	}
+	const ptype = lstatSync(path);
+	if (ptype.isDirectory()) {
+		const files = readdirSync(path, "utf8");
+		for (const file of files) {
+			test_file(`${path}/${file}`, json, true); // silent
+		}
+	} else if (ptype.isFile()) {
+		test_file(path, json);
+	}
 } // all args done..
 
 // read and compile the grammar -----------------------------------------
 
-function test_file(file, json, silent) {
-    if (!file.endsWith('.txt')) {
-        say("**** Skip '"+file+"' this is not a .txt file...");
-        return;
-    };
-    let f1 = readFileSync(file, 'utf8');
+/**
+ *
+ * @param {string} file
+ * @param {boolean} json
+ * @param {boolean} silent
+ * @return {boolean}
+ */
+function test_file(file, json, silent = false) {
+	if (!file.endsWith(".txt")) {
+		say(`**** Skip '${file}' this is not a .txt file...`);
+		return false;
+	}
+	let f1 = readFileSync(file, "utf8");
 
-    if (f1.startsWith("====")) f1 = '\n'+f1;  // skips empty grammar
+	if (f1.startsWith("====")) f1 = `\n${f1}`; // skips empty grammar
 
-    const grammars = f1.split(/[\n\r]*====+[ \t]*([^ \t\n\r]*)[^\n\r]*\r?\n/);
+	const grammars = f1.split(/[\n\r]*====+[ \t]*([^ \t\n\r]*)[^\n\r]*\r?\n/);
 
-    let peg_ok = 0, peg_err = 0; // pPEG grammars
+	let peg_ok = 0;
+	let peg_err = 0; // pPEG grammars
 
-    let test_ok = 0, test_err = 0;   // input tests
+	let test_ok = 0;
+	let test_err = 0; // input tests
 
-    for (let i=0; i<grammars.length; i+=2) {
+	for (let i = 0; i < grammars.length; i += 2) {
+		const tests = grammars[i].split(
+			/\r?\n----+[ \t]*([^ \t\n\r]*)[^\n\r]*\r?\n/,
+		);
 
-        const tests = grammars[i].split(/\r?\n----+[ \t]*([^ \t\n\r]*)[^\n\r]*\r?\n/);
+		const px = tests[0]; // pPEG grammar source
 
-        const px = tests[0]; // pPEG grammar source
+		const ps = strip_leading_comments(px); // # lines prior to rules
 
-        const ps = strip_leading_comments(px); // # lines prior to rules
+		if (ps === "") continue; // skip grammar that is all comment lines
 
-        if (ps === '') continue; // skip grammar that is all comment lines
+		let peg_not = false;
+		if (grammars[i - 1] === "not") {
+			peg_not = true;
+			say("==================================================== not");
+		} else {
+			say("========================================================");
+		}
 
-        let peg_not = false
-        if (grammars[i-1] === "not") {
-            peg_not = true
-            say("==================================================== not") }
-        else {
-            say("========================================================") }
-        
-        say(px) // pPEG grammar text
+		say(px); // pPEG grammar text
 
-        const pp = peg.compile(ps)
+		const pp = peg.compile(ps);
 
-        if (!pp.ok) { // bad grammar
-            say(pp.show_err())
-            say("********************* grammar failed, skip tests....")
-            peg_err += peg_not? 0 : 1 // don't count if expected to fail
-            continue
-        }
-        if (peg_not) { // was expected to fail, but didn't
-            say("********************* grammar was expected to fail ...")
-            peg_err += 1
-        }
+		if (!pp.ok) {
+			// bad grammar
+			say(pp.show_err());
+			say("********************* grammar failed, skip tests....");
+			peg_err += peg_not ? 0 : 1; // don't count if expected to fail
+			continue;
+		}
+		if (peg_not) {
+			// was expected to fail, but didn't
+			say("********************* grammar was expected to fail ...");
+			peg_err += 1;
+		}
 
-        if (tests[1] === "not") {
-            say("---------------------------------------------------- not") }
-        else {
-            say("--------------------------------------------------------") }
+		if (tests[1] === "not") {
+			say("---------------------------------------------------- not");
+		} else {
+			say("--------------------------------------------------------");
+		}
 
-        // parse the input tests -------------------------------------------
+		// parse the input tests -------------------------------------------
 
-        let ok = 0, err = 0;
+		let ok = 0;
+		let err = 0;
 
-        for (let i=2; i<tests.length; i+=2) {
-            const neg = tests[i-1] === 'not';
-            const s = tests[i];
-            say(s);
-            if (neg) {
-                say(">>>> not");
-            } else {
-                say(">>>>");
-            }
-            const tp = pp.parse(s);
-            if (tp.ok) {
-                say(tp.show_ptree(json));
-            } else { // parse failed ...
-                say(tp.show_err());
-            }
-            if (tp.ok && !neg || !tp.ok && neg) {
-                ok += 1;
-                say("----------------------------- ok  "+ok);
-            } else {
-                err += 1;
-                say("***************************** err  "+err+" ********");
-            }
-        }
+		for (let i = 2; i < tests.length; i += 2) {
+			const neg = tests[i - 1] === "not";
+			const s = tests[i];
+			say(s);
+			if (neg) {
+				say(">>>> not");
+			} else {
+				say(">>>>");
+			}
+			const tp = pp.parse(s);
+			if (tp.ok) {
+				say(tp.show_ptree(json));
+			} else {
+				// parse failed ...
+				say(tp.show_err());
+			}
+			if ((tp.ok && !neg) || (!tp.ok && neg)) {
+				ok += 1;
+				say(`----------------------------- ok  ${ok}`);
+			} else {
+				err += 1;
+				say(`***************************** err  ${err} ********`);
+			}
+		}
 
-        test_ok += ok;
-        test_err += err;
-        peg_ok += 1;
+		test_ok += ok;
+		test_err += err;
+		peg_ok += 1;
+	} // grammars
 
-    } // grammars
+	if (peg_err === 0 && test_err === 0) {
+		console.log(
+			`OK ${file}: all ${test_ok} test(s), ${peg_ok} grammar(s) .....`,
+		);
+	} else {
+		console.log(
+			`**** Error ${file}: Failed ${test_err} test(s), passed ok ${test_ok} test(s), failed ${peg_err} grammar(s)`,
+		);
+		failure = 1;
+	}
 
-    if (peg_err === 0 && test_err === 0) {
-        console.log("OK "+file+": all "+test_ok+" test(s), "+peg_ok+" grammar(s) .....");
-    } else {
-        console.log("**** Error "+file+": Failed "+test_err+" test(s), passed ok "+
-                    test_ok+" test(s), failed "+peg_err+" grammar(s)");
-    }
+	function say(msg) {
+		if (!silent) console.log(msg);
+	}
 
-    function say(msg) {
-        if (!silent) console.log(msg);
-    }
-
-    function strip_leading_comments(str) {
-        if (str === "") return str;
-        let rx = str.match(/^((?:[ \t\n\r]*#[^\n\r]*[\n\r]*)*)[ \t\n\r]*(.*)/s);
-        return rx[2];
-    }
-
+	function strip_leading_comments(str) {
+		if (str === "") return str;
+		const rx = str.match(/^((?:[ \t\n\r]*#[^\n\r]*[\n\r]*)*)[ \t\n\r]*(.*)/s);
+		return rx[2];
+	}
 } // test_file
 
-process.exit(0);
+process.exit(failure ? 1 : 0);
