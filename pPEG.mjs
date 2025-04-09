@@ -1075,7 +1075,7 @@ function show_json(ptree, inset = "") {
 		block += `${json},\n`;
 	}
 	const json = show_json(kids[n], inset1);
-	block += `${json}]`;
+	block += `${json}\n${inset}]]`;
 	return block;
 }
 
