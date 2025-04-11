@@ -83,23 +83,22 @@ const pPEG_codex = compiler(pPEG_rules);
 // pPEG machine instructions --------------------------------------------------
 
 /**
- *
- * @param exp
- * @param env
- * @returns {boolean}
+ * Rule lookup - finds the appropriate rule for the given rule name and executes it
+ * @param {[function, number, string]} exp The rule name to execute
+ * @param {Env} env Environment configuration
+ * @returns {boolean} True if the command was successfully parsed and executed
  */
 function ID(exp, env) {
-	// [ID, idx, name]
+	const [, idx, name] = exp // [ID, idx, name]
 	const start = env.pos;
 	const stack = env.tree.length;
-	const name = exp[2];
-	const expr = env.code[exp[1]];
+	const expr = env.code[idx];
 	if (env.panic || env.depth > env.max_depth) {
 		if (!env.panic)
 			env.panic = `max depth of recursion exceeded in rules:\n ... ${env.rule_names.slice(-6).join(" ")}\n`;
 		return false;
 	}
-	if (env.trace) trace_enter(exp, env);
+	if (env.trace) trace_enter(name, env);
 	env.depth += 1;
 	env.rule_names[env.depth] = name;
 	env.start[env.depth] = start;
@@ -121,7 +120,7 @@ function ID(exp, env) {
 		if (env.trace) trace_result(exp, env, true, start);
 		return true;
 	}
-	if (env.tree.length - stack > 1 || name[0] <= "Z") {
+	if (env.tree.length - stack > 1 || name[0] <= "Z") { // if multiple results or first letter capital
 		const result = [name, env.tree.slice(stack)]; // stack..top
 		env.tree = env.tree.slice(0, stack); // delete stack..
 		env.tree.push(result);
@@ -139,6 +138,12 @@ function ID(exp, env) {
 	return true; //  elide this rule label
 } // ID
 
+/**
+ *
+ * @param {string|Command} exp
+ * @param {Env} env
+ * @returns {boolean}
+ */
 function ALT(exp, env) {
 	// [ALT, [...exp], [...guards]]
 	if (env.trace) trace_rep(exp, env);
@@ -161,6 +166,12 @@ function ALT(exp, env) {
 	return false;
 } // ALT
 
+/**
+ *
+ * @param {string|Command} exp
+ * @param {Env} env
+ * @returns {boolean}
+ */
 function SEQ(exp, env) {
 	// [SEQ, min, max, [...exp]]
 	if (env.trace) trace_rep(exp, env);
@@ -199,6 +210,12 @@ function SEQ(exp, env) {
 	return count >= min;
 }
 
+/**
+ *
+ * @param {string|Command} exp
+ * @param {Env} env
+ * @returns {boolean}
+ */
 function REP(exp, env) {
 	// [REP, min, max, exp]
 	if (env.trace) trace_rep(exp, env);
@@ -224,6 +241,12 @@ function REP(exp, env) {
 	return true;
 }
 
+/**
+ *
+ * @param {string|Command} exp
+ * @param {Env} env
+ * @returns {boolean}
+ */
 function PRE(exp, env) {
 	// [PRE, sign, term]
 	const [_pre, sign, term] = exp;
@@ -250,6 +273,12 @@ function PRE(exp, env) {
 	return result;
 }
 
+/**
+ *
+ * @param {string|Command} exp
+ * @param {Env} env
+ * @returns {boolean}
+ */
 function SQ(exp, env) {
 	// [SQ, icase, "..."]
 	const start = env.pos;
@@ -275,6 +304,12 @@ function SQ(exp, env) {
 	return true;
 }
 
+/**
+ *
+ * @param {string|Command} exp
+ * @param {Env} env
+ * @returns {boolean}
+ */
 function CHS(exp, env) {
 	// [CHS, neg, min, max, str]
 	const input = env.input;
@@ -314,6 +349,12 @@ function CHS(exp, env) {
 	return true;
 }
 
+/**
+ *
+ * @param {string|Command} exp
+ * @param {Env} env
+ * @returns {boolean}
+ */
 function EXTN(exp, env) {
 	// [EXTN, "<xxx>"]
 	const ext = exp[1].slice(1, -1).split(" ");
@@ -345,8 +386,7 @@ function EXTN(exp, env) {
 	}
 }
 
-// bultins -- predefined extension functions -------------------------------
-
+// builtins -- predefined extension functions -------------------------------
 const builtins = {
 	"?": dump_trace,
 	trace: trace_trigger, // deprecate trace...?
@@ -438,7 +478,7 @@ function same_match(exp, env) {
 	return false;
 }
 
-// <quote> and <quopter> --------------------------------------
+// <quote> and <quoter> --------------------------------------
 
 function quote(exp, env) {
 	// marks <quote>
@@ -575,7 +615,7 @@ function lines_after(str, ln, i, n) {
 }
 
 /**
- *
+ * Formatting: Prints some spaces and a line number
  * @param {number} n
  * @returns {string}
  */
@@ -587,8 +627,13 @@ function line_label(n) {
 	return ln;
 }
 
-// trace ----------------------------------------------------------
 
+/**
+ * Trace
+ * @param {string|Command} exp
+ * @param {Env} env
+ * @returns {boolean}
+ */
 function trace_trigger(exp, env) {
 	// <?> extension
 	if (env.trace) return true; // nested <?>
@@ -598,13 +643,18 @@ function trace_trigger(exp, env) {
 	return true;
 }
 
-function trace_enter(exp, env) {
+/**
+ * Decides whether to print a trace report
+ * @param {string} name
+ * @param {Env} env
+ */
+function trace_enter(name, env) {
 	if (env.trace_depth === -1) {
 		// not active
-		if (env.trace !== exp[2]) return;
+		if (env.trace !== name) return;
 		env.trace_depth = env.depth; // active enter/exit current rule
 	}
-	trace_report(indent(env) + exp[2]);
+	trace_report(indent(env) + name);
 }
 
 function trace_result(exp, env, result, start) {
@@ -679,8 +729,11 @@ function indent(env) {
 	return s;
 }
 
-// exp decode display ------------------------------------------------
-
+/**
+ * exp decode display
+ * @param {string|Command} exp
+ * @returns {*|string} A string, or second arg if ID, or first arg if EXTN (what are those args?)
+ */
 function exp_show(exp) {
 	if (typeof exp === "string") return exp;
 	switch (exp[0]) {
@@ -718,13 +771,13 @@ function exp_show(exp) {
 	}
 }
 
-function sfx_show(n, m) {
-	if (n === 0 && m === 0) return "*";
-	if (n === 0 && m === 1) return "?";
-	if (n === 1 && m === 0) return "+";
-	if (n === 1 && m === 1) return "";
-	if (m === 0) return `*${n}..`;
-	return `*${n}..${m}`;
+function sfx_show(min, max) {
+	if (min === 0 && max === 0) return "*";
+	if (min === 0 && max === 1) return "?";
+	if (min === 1 && max === 0) return "+";
+	if (min === 1 && max === 1) return "";
+	if (max === 0) return `*${min}..`;
+	return `*${min}..${max}`;
 }
 
 function str_esc(s) {
@@ -748,9 +801,8 @@ function str_esc(s) {
 	return r;
 }
 
-//  compiler -- ptree rules => instruction code ----------------------------
-
 /**
+ * The compiler turns ptree rules into instruction code
  * @param {Array} rules
  * @returns {Codex}
  */
@@ -775,6 +827,10 @@ function compiler(rules) {
 	// if (sp) space = code[sp];
 	return { rules, names, code, start };
 
+	/**
+	 * @param exp
+	 * @returns {[Command]} Tuple containing the function to execute the rule, and arguments
+	 */
 	function emit(exp) {
 		// ptree -> [Op, args..]
 		switch (exp[0]) {
@@ -1000,11 +1056,12 @@ function show_ptree(ptree, inset, last) {
 }
 
 /**
+ * @param {Array} ptree
+ * @param {string} inset
  * @returns {string}
  */
 function show_json(ptree, inset = "") {
 	if (!ptree) return "";
-	// if (!inset) inset = '';
 	const rule = ptree[0]; // rule name
 	if (typeof ptree[1] === "string") {
 		return `${inset}["${rule}", "${str_esc(ptree[1])}"]`;
@@ -1018,12 +1075,15 @@ function show_json(ptree, inset = "") {
 		block += `${json},\n`;
 	}
 	const json = show_json(kids[n], inset1);
-	block += `${json}]`;
+	block += `${json}\n${inset}]]`;
 	return block;
 }
 
 // ----------------------------------------------------------------------
 
+/**
+ * @param {string} report
+ */
 function trace_report(report) {
 	console.log(report); // TODO output in env ?
 }
@@ -1062,7 +1122,7 @@ function trace_report(report) {
 /**
  * Environment configuration object
  * @typedef {Object} Env
- * @property {boolean} trace
+ * @property {boolean | string} trace
  * @property {Options} options
  * @property {string} panic
  * @property {Array} fault_tree
@@ -1075,6 +1135,14 @@ function trace_report(report) {
  * @property {number} peak
  * @property {number} trace_depth
  * @property {Array} tree
+ * @property {Array<Command>} code
+ * @property {number} depth
+ * @property {number} max_depth
+ * @property {Array} rule_names // array of strings..?
+ * @property {Array} start // array of what?
+ * @property {Array} stack // array of what?
+ * @property {Extensions} extend
+ * @property {Options} options
  */
 
 /**
@@ -1113,18 +1181,31 @@ const defaultEnv = (codex, input) => ({
 });
 
 /**
- * Codex
+ * A parsed grammar command
+ * @typedef {Array} Command
+ * @param {(start: Function, env: Env) => boolean} 0 Function to call to execute the rule
+ * @param {...(number | string)} 1 Arguments to the rule
+ */
+
+/**
+ * Instruction code
  * @typedef {Object} Codex
- * @param {[(start: Function, env: Env) => boolean, number, any]} start
+ * @param {[Command]} start
  * @param {Array} rules
  * @param code
  * @param name
  */
 
 /**
+ * Extension functions
+ * @typedef {Object<string, (any, Env) => unknown>} Extensions
+ *
+ */
+
+/**
  * @param {Codex} codex
  * @param {string} input
- * @param {Object} extend
+ * @param {Extensions} extend
  * @param {Options} options
  * @return { ParseSuccess | ParseFailure }
  */
@@ -1198,25 +1279,23 @@ function err_report(env) {
 }
 
 /**
- * @typedef CompileSuccess
- * @extends ParseSuccess
+ * @typedef {ParseSuccess} CompileSuccess
  * @property {boolean} ok
  * @property {(input: string, options?: any) => any} parse
  */
 
 /**
- * @typedef CompileFailure
- * @extends ParseFailure
- * @param {String} panic
+ * @typedef {ParseFailure} CompileFailure
+ * @param {string} panic
  * @param {() => any} parse
  */
 
 /**
  *
- * @param {String} grammar
+ * @param {string} grammar A grammar, e.g. "number = digit+\ndigit = [0-9]"
  * @param {Object?} extend
  * @param {Object?} options
- * @returns {(CompileSuccess|CompileFailure)}
+ * @returns {(CompileSuccess|CompileFailure)} A compiled parser object, or an object describing the failure to parse
  */
 function compile(grammar, extend, options) {
 	const peg = parse(pPEG_codex, grammar, {}, options);
