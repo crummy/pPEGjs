@@ -828,8 +828,8 @@ function compiler(rules) {
 	return { rules, names, code, start };
 
 	/**
-	 * @param exp
-	 * @returns {[Command]} Tuple containing the function to execute the rule, and arguments
+	 * @param {Array} exp
+	 * @returns {[...Command]} Tuple containing the function to execute the rule, and arguments
 	 */
 	function emit(exp) {
 		// ptree -> [Op, args..]
@@ -1031,8 +1031,14 @@ function show_tree(ptree, json = false) {
 	return show_ptree(ptree, 0, 0);
 }
 
+/**
+ *
+ * @param {Array} ptree
+ * @param {number} inset
+ * @param {number} last int bit map, 1 if after last kid
+ * @returns {string}
+ */
 function show_ptree(ptree, inset, last) {
-	// last = int bit map, 1 if after last kid
 	const res = ptree[0]; // rule name
 	if (typeof ptree[1] === "string") {
 		return `${res} "${str_esc(ptree[1])}"`;
@@ -1089,63 +1095,6 @@ function trace_report(report) {
 }
 
 /**
- * @typedef {Object} Codex
- * @property {Object} names
- * @property {Array} code
- * @property {((function(*, *): (boolean))|*|number)[]} start
- * @property rules
- */
-
-/**
- * @typedef {Object} ParseSuccess
- * @property {true} ok
- * @property {() => string} show_err
- * @property {(boolean: false) => string} show_ptree
- * @property {0} err
- * @property {Object} ptree
- */
-
-/**
- * @typedef {Object} ParseFailure
- * @property {false} ok
- * @property {() => string} show_err
- * @property {number} err
- * @property {Env} env
- */
-
-/**
- * @typedef {Object} Options
- * @property {boolean?} trace
- * @property {boolean?} short
- */
-
-/**
- * Environment configuration object
- * @typedef {Object} Env
- * @property {boolean | string} trace
- * @property {Options} options
- * @property {string} panic
- * @property {Array} fault_tree
- * @property {boolean} result
- * @property {number} pos
- * @property {string} input
- * @property {number} fault_pos
- * @property {string | null} fault_rule
- * @property {string | null} fault_exp
- * @property {number} peak
- * @property {number} trace_depth
- * @property {Array} tree
- * @property {Array<Command>} code
- * @property {number} depth
- * @property {number} max_depth
- * @property {Array} rule_names // array of strings..?
- * @property {Array} start // array of what?
- * @property {Array} stack // array of what?
- * @property {Extensions} extend
- * @property {Options} options
- */
-
-/**
  *
  * @param codex
  * @param {string} input
@@ -1179,22 +1128,6 @@ const defaultEnv = (codex, input) => ({
 	indent: [], // <indent>
 	result: true, // final parse result
 });
-
-/**
- * A parsed grammar command
- * @typedef {Array} Command
- * @param {(start: Function, env: Env) => boolean} 0 Function to call to execute the rule
- * @param {...(number | string)} 1 Arguments to the rule
- */
-
-/**
- * Instruction code
- * @typedef {Object} Codex
- * @param {[Command]} start
- * @param {Array} rules
- * @param code
- * @param name
- */
 
 /**
  * Extension functions
@@ -1245,10 +1178,8 @@ function parse(codex, input, extend, options) {
 
 	return {
 		ok: true,
-		err: 0,
 		ptree: env.tree[0],
 		show_ptree: (json = false) => show_tree(env.tree[0], json),
-		show_err: () => "No errors to report...\n",
 	};
 }
 
@@ -1277,18 +1208,6 @@ function err_report(env) {
 	report += line_report(env.input, env.peak);
 	return report;
 }
-
-/**
- * @typedef {ParseSuccess} CompileSuccess
- * @property {boolean} ok
- * @property {(input: string, options?: any) => any} parse
- */
-
-/**
- * @typedef {ParseFailure} CompileFailure
- * @param {string} panic
- * @param {() => any} parse
- */
 
 /**
  *
@@ -1320,14 +1239,94 @@ function compile(grammar, extend, options) {
 		};
 	}
 	return {
-		err: 0,
 		show_ptree: peg.show_ptree,
 		ok: true,
 		parse: (input, options) => parse(peg.codex, input, extend, options),
-		show_err: () => "No grammar errors ...",
 	};
 }
 
 const peg = { compile, show_tree };
 
 export default peg;
+
+/**
+ * @typedef {Object} Codex
+ * @property {Object} names
+ * @property {Array} code
+ * @property {((function(*, *): (boolean))|*|number)[]} start
+ * @property rules
+ */
+
+/**
+ * @typedef {Object} ParseSuccess
+ * @property {true} ok
+ * @property {(boolean?: false) => string} show_ptree
+ * @property {Array} ptree
+ */
+
+/**
+ * @typedef {Object} ParseFailure
+ * @property {false} ok
+ * @property {() => string} show_err
+ * @property {number} err
+ * @property {Env} env
+ */
+
+/**
+ * @typedef {Object} Options
+ * @property {boolean?} trace
+ * @property {boolean?} short
+ */
+
+/**
+ * Environment configuration object
+ * @typedef {Object} Env
+ * @property {boolean | string} trace
+ * @property {Options} options
+ * @property {string} panic
+ * @property {Array} fault_tree
+ * @property {boolean} result
+ * @property {number} pos
+ * @property {string} input
+ * @property {number} fault_pos
+ * @property {string | null} fault_rule
+ * @property {string | null} fault_exp
+ * @property {number} peak
+ * @property {number} trace_depth
+ * @property {Array} tree
+ * @property {Array<Command>} code
+ * @property {number} depth
+ * @property {number} max_depth
+ * @property {Array} rule_names // array of strings..?
+ * @property {Array} start // array of what?
+ * @property {Array} stack // array of what?
+ * @property {Extensions} extend
+ * @property {Options} options
+ */
+
+/**
+ * @typedef {ParseSuccess} CompileSuccess
+ * @property {(input: string, options?: any) => any} parse
+ */
+
+/**
+ * @typedef {ParseFailure} CompileFailure
+ * @param {string} panic
+ * @property {(input: string, options?: any) => any} parse
+ */
+
+/**
+ * A parsed grammar command
+ * @typedef {Array} Command
+ * @param {(start: Function, env: Env) => boolean} 0 Function to call to execute the rule
+ * @param {...(number | string)} 1 Arguments to the rule
+ */
+
+/**
+ * Instruction code
+ * @typedef {Object} Codex
+ * @param {[Command]} start
+ * @param {Array} rules
+ * @param code
+ * @param name
+ */
