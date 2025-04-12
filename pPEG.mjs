@@ -84,7 +84,7 @@ const pPEG_codex = compiler(pPEG_rules);
 
 /**
  * Rule lookup - finds the appropriate rule for the given rule name and executes it
- * @param {[function, number, string]} exp The rule name to execute
+ * @param {CommandID} exp The rule name to execute
  * @param {Env} env Environment configuration
  * @returns {boolean} True if the command was successfully parsed and executed
  */
@@ -140,7 +140,7 @@ function ID(exp, env) {
 
 /**
  *
- * @param {string|Command} exp
+ * @param {CommandALT} exp
  * @param {Env} env
  * @returns {boolean}
  */
@@ -168,7 +168,7 @@ function ALT(exp, env) {
 
 /**
  *
- * @param {string|Command} exp
+ * @param {CommandSEQ} exp
  * @param {Env} env
  * @returns {boolean}
  */
@@ -211,10 +211,16 @@ function SEQ(exp, env) {
 }
 
 /**
+ * Handles repetition patterns in parsing expressions (*, +, ?, or custom ranges)
  *
- * @param {string|Command} exp
- * @param {Env} env
- * @returns {boolean}
+ * @param {CommandREP} exp - The repetition expression [REP, min, max, expr]
+ * @param {Env} env - The parsing environment
+ * @returns {boolean} - True if the repetition pattern matched successfully (at least min times)
+ *
+ * The function attempts to match the expression repeatedly between min and max times:
+ * - min: minimum required matches (0 for * and ?, 1 for +)
+ * - max: maximum allowed matches (0 means unlimited for * and +)
+ * - Stops if: no progress made, max count reached, or expression fails to match
  */
 function REP(exp, env) {
 	// [REP, min, max, exp]
@@ -223,15 +229,17 @@ function REP(exp, env) {
 	const stack = env.tree.length;
 	let count = 0;
 	let pos = env.pos;
+
 	while (true) {
 		// min..max
 		const result = expr[0](expr, env);
 		if (result === false) break;
 		count += 1;
 		if (pos === env.pos) break; // no progress
-		if (count === max) break; // max 0 means any`
+		if (count === max) break; // max 0 means any
 		pos = env.pos;
 	}
+
 	if (count < min) {
 		if (env.tree.length > stack) {
 			env.tree = env.tree.slice(0, stack);
@@ -242,13 +250,18 @@ function REP(exp, env) {
 }
 
 /**
+ * Handles prefix operators in parsing expressions
  *
- * @param {string|Command} exp
+ * @param {CommandPRE} exp
  * @param {Env} env
  * @returns {boolean}
+ *
+ * Supports three prefix operators:
+ * - `&` (and-predicate): Succeeds if term matches but doesn't consume input (default case)
+ * - `!` (not-predicate): Succeeds if term fails to match
+ * - `~` (not-consumed): Matches any single character except what term would match
  */
 function PRE(exp, env) {
-	// [PRE, sign, term]
 	const [_pre, sign, term] = exp;
 	const start = env.pos;
 	const stack = env.tree.length;
@@ -274,19 +287,22 @@ function PRE(exp, env) {
 }
 
 /**
+ * Matches a string literal at the current position in the input.
+ * Handles single-quoted string literals from the grammar, with optional case-insensitivity.
  *
- * @param {string|Command} exp
+ * @param {CommandSQ} exp
  * @param {Env} env
  * @returns {boolean}
  */
 function SQ(exp, env) {
-	// [SQ, icase, "..."]
 	const start = env.pos;
 	const input = env.input;
-	const icase = exp[1]; // case insensitive
-	const str = exp[2];
+	const [_, icase, str] = exp;
 	const len = str.length;
-	if (len === 0) return true; // '' empty str
+
+	// Empty string '' always matches
+	if (len === 0) return true;
+
 	let pos = env.pos;
 	for (let i = 0; i < len; i += 1) {
 		let char = input[pos]; // undefined if pos >= input.length
@@ -306,7 +322,7 @@ function SQ(exp, env) {
 
 /**
  *
- * @param {string|Command} exp
+ * @param {CommandCHS} exp
  * @param {Env} env
  * @returns {boolean}
  */
@@ -351,7 +367,7 @@ function CHS(exp, env) {
 
 /**
  *
- * @param {string|Command} exp
+ * @param {CommandEXTN} exp
  * @param {Env} env
  * @returns {boolean}
  */
@@ -803,7 +819,7 @@ function str_esc(s) {
 
 /**
  * The compiler turns ptree rules into instruction code
- * @param {Array} rules
+ * @param {Command[]} rules
  * @returns {Codex}
  */
 function compiler(rules) {
@@ -823,15 +839,20 @@ function compiler(rules) {
 	for (let i = 0; i < code.length; i += 1) {
 		optimize(code[i], code);
 	}
+
 	// let space, sp = names["_space_"];
 	// if (sp) space = code[sp];
 	return { rules, names, code, start };
 
 	/**
-	 * @param {Array} exp
-	 * @returns {[...Command]} Tuple containing the function to execute the rule, and arguments
+	 * Converts a parsed expression into a Command tuple for execution
+	 *
+	 * @param {[string, any]} exp The parsed expression array where the first element is the operation type
+	 *  *                             and subsequent elements are operation-specific arguments
+	 * @returns {Command} Tuple containing the function to execute the rule and its arguments
 	 */
 	function emit(exp) {
+		console.log(exp)
 		// ptree -> [Op, args..]
 		switch (exp[0]) {
 			case "id": {
@@ -1316,17 +1337,80 @@ export default peg;
  */
 
 /**
- * A parsed grammar command
- * @typedef {Array} Command
- * @param {(start: Function, env: Env) => boolean} 0 Function to call to execute the rule
- * @param {...(number | string)} 1 Arguments to the rule
- */
-
-/**
  * Instruction code
  * @typedef {Object} Codex
  * @param {[Command]} start
  * @param {Array} rules
  * @param code
  * @param name
+ */
+
+/**
+ * ID command structure
+ * @typedef {Array} CommandID
+ * @property {typeof ID} 0 The ID function itself
+ * @property {number} 1 The index in the code array
+ * @property {string} 2 The rule name
+ */
+
+/**
+ * ALT command structure
+ * @typedef {Array} CommandALT
+ * @property {typeof ALT} 0 The ALT function itself
+ * @property {Array} 1 Arguments to the ALT function
+ * @property {Array} 2 Guards
+ */
+
+/**
+ * SEQ command structure
+ * @typedef {Array} CommandSEQ
+ * @property {typeof SEQ} 0 The SEQ function itself
+ * @property {number} 1 min
+ * @property {number} 2 max
+ * @property {Array} 3 exp
+ */
+
+/**
+ * REP command structure
+ * @typedef {Array} CommandREP
+ * @property {typeof REP} 0 The REP function itself
+ * @property {number} 1 min
+ * @property {number} 2 max
+ * @property {Command} 3 expr
+ */
+
+/** PRE command structure
+ * @typedef {Array} CommandPRE
+ * @property {typeof PRE} 0 The PRE function itself
+ * @property {string} 1 sign
+ * @property {number} 2 min
+ */
+
+/** CHS command structure
+ * @typedef {Array} CommandCHS
+ * @property {typeof CHS} 0 The CHS function itself
+ * @property {string} 1 sign
+ * @property {number} 2 min
+ * @property {number} 3 max
+ * @property {string} 4 str
+ */
+
+/**
+ * SQ command structure
+ * @typedef {Array} CommandSQ
+ * @property {typeof SQ} 0 The SQ function itself
+ * @property {boolean} 1 Case insensitivity
+ * @property {string} 2 str - e.g. "something"
+ */
+
+/**
+ * EXTN command structure
+ * @typedef {Array} CommandEXTN
+ * @property {typeof EXTN} 0 The EXTN function itself
+ * @property {string} 1 extension function name
+ */
+
+/**
+ * A parsed grammar command
+ * @typedef {CommandID|CommandALT|CommandSEQ|CommandREP|CommandPRE|CommandCHS|CommandSQ|CommandEXTN} Command
  */
