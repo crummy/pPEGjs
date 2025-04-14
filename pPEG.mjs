@@ -120,6 +120,15 @@ function ID(exp, env) {
 		if (env.trace) trace_result(exp, env, true, start);
 		return true;
 	}
+	// TODO: is this a safe place to register a match?
+	const id = env.last_match_id++;
+	env.matches.push({
+		rule: name,
+		rule_id: idx,
+		start: start,
+		end: env.pos,
+		id
+	})
 	if (env.tree.length - stack > 1 || name[0] <= "Z") { // if multiple results or first letter capital
 		const result = [name, env.tree.slice(stack)]; // stack..top
 		env.tree = env.tree.slice(0, stack); // delete stack..
@@ -520,7 +529,6 @@ function quoter(exp, env) {
 	const eot = input.indexOf(marks, sot);
 	if (eot === -1) return false;
 	env.tree.push(["quoter", input.slice(sot, eot)]);
-	console.log(start, sot, eot, marks);
 	env.pos = eot + marks.length;
 	if (env.peak < env.pos) env.peak = env.pos;
 	return true;
@@ -646,7 +654,7 @@ function line_label(n) {
 
 /**
  * Trace
- * @param {string|Command} exp
+ * @param {Exp} exp
  * @param {Env} env
  * @returns {boolean}
  */
@@ -747,8 +755,8 @@ function indent(env) {
 
 /**
  * exp decode display
- * @param {string|Command} exp
- * @returns {*|string} A string, or second arg if ID, or first arg if EXTN (what are those args?)
+ * @param {Exp|string} exp
+ * @returns {string} Human readable expression
  */
 function exp_show(exp) {
 	if (typeof exp === "string") return exp;
@@ -783,6 +791,7 @@ function exp_show(exp) {
 		case EXTN:
 			return exp[1];
 		default:
+			// TODO: when would this happen?
 			return "(...)";
 	}
 }
@@ -819,7 +828,7 @@ function str_esc(s) {
 
 /**
  * The compiler turns ptree rules into instruction code
- * @param {Command[]} rules
+ * @param {[string, ...any]} rules
  * @returns {Codex}
  */
 function compiler(rules) {
@@ -848,11 +857,10 @@ function compiler(rules) {
 	 * Converts a parsed expression into a Command tuple for execution
 	 *
 	 * @param {[string, any]} exp The parsed expression array where the first element is the operation type
-	 *  *                             and subsequent elements are operation-specific arguments
+	 *                             and subsequent elements are operation-specific arguments
 	 * @returns {Command} Tuple containing the function to execute the rule and its arguments
 	 */
 	function emit(exp) {
-		console.log(exp)
 		// ptree -> [Op, args..]
 		switch (exp[0]) {
 			case "id": {
@@ -1133,6 +1141,8 @@ const defaultEnv = (codex, input) => ({
 	max_depth: 100,
 	rule_names: [], // dynamic stack
 	tree: [], // ptree construction
+	matches: [],
+	last_match_id: 0,
 	// fault reporting .........
 	panic: "", // crash msg
 	fault_pos: -1,
@@ -1201,6 +1211,7 @@ function parse(codex, input, extend, options) {
 		ok: true,
 		ptree: env.tree[0],
 		show_ptree: (json = false) => show_tree(env.tree[0], json),
+		matches: env.matches,
 	};
 }
 
@@ -1283,6 +1294,7 @@ export default peg;
  * @property {true} ok
  * @property {(boolean?: false) => string} show_ptree
  * @property {Array} ptree
+ * @property {Match[]} matches
  */
 
 /**
@@ -1297,6 +1309,15 @@ export default peg;
  * @typedef {Object} Options
  * @property {boolean?} trace
  * @property {boolean?} short
+ */
+
+/**
+ * @typedef {Object} Match
+ * @property {string} name
+ * @property {number} rule_id
+ * @property {number} start
+ * @property {number} end
+ * @property {number} id
  */
 
 /**
@@ -1315,6 +1336,8 @@ export default peg;
  * @property {number} peak
  * @property {number} trace_depth
  * @property {Array} tree
+ * @property {Match[]} matches
+ * @property {number} last_match_id
  * @property {Array<Command>} code
  * @property {number} depth
  * @property {number} max_depth
@@ -1336,6 +1359,8 @@ export default peg;
  * @property {(input: string, options?: any) => any} parse
  */
 
+
+
 /**
  * Instruction code
  * @typedef {Object} Codex
@@ -1346,68 +1371,81 @@ export default peg;
  */
 
 /**
+ * A recursive array type that starts with a string followed by strings or nested arrays
+ * @typedef {[string, ...(string|Exp)[]]} Exp
+ */
+
+/**
  * ID command structure
- * @typedef {Array} CommandID
- * @property {typeof ID} 0 The ID function itself
- * @property {number} 1 The index in the code array
- * @property {string} 2 The rule name
+ * @typedef {[
+ *   typeof ID,  // The ID function itself
+ *   number,     // The index in the code array
+ *   string      // The rule name
+ * ]} CommandID
  */
 
 /**
  * ALT command structure
- * @typedef {Array} CommandALT
- * @property {typeof ALT} 0 The ALT function itself
- * @property {Array} 1 Arguments to the ALT function
- * @property {Array} 2 Guards
+ * @typedef {[
+ *   typeof ALT,       // The ALT function itself
+ *   Array<Command>,   // Arguments to the ALT function
+ *   Array<string>?    // Guards
+ * ]} CommandALT
  */
 
 /**
  * SEQ command structure
- * @typedef {Array} CommandSEQ
- * @property {typeof SEQ} 0 The SEQ function itself
- * @property {number} 1 min
- * @property {number} 2 max
- * @property {Array} 3 exp
+ * @typedef {[
+ *   typeof SEQ,    // The SEQ function itself
+ *   number,        // min
+ *   number,        // max
+ *   Array<Command> // exp
+ * ]} CommandSEQ
  */
 
 /**
  * REP command structure
- * @typedef {Array} CommandREP
- * @property {typeof REP} 0 The REP function itself
- * @property {number} 1 min
- * @property {number} 2 max
- * @property {Command} 3 expr
+ * @typedef {[
+ *   typeof REP,  // The REP function itself
+ *   number,      // min
+ *   number,      // max
+ *   Command      // expr
+ * ]} CommandREP
  */
 
 /** PRE command structure
- * @typedef {Array} CommandPRE
- * @property {typeof PRE} 0 The PRE function itself
- * @property {string} 1 sign
- * @property {number} 2 min
+ * @typedef {[
+ *   typeof PRE,  // The PRE function itself
+ *   string,      // sign
+ *   Command      // term
+ * ]} CommandPRE
  */
 
 /** CHS command structure
- * @typedef {Array} CommandCHS
- * @property {typeof CHS} 0 The CHS function itself
- * @property {string} 1 sign
- * @property {number} 2 min
- * @property {number} 3 max
- * @property {string} 4 str
+ * @typedef {[
+ *   typeof CHS,  // The CHS function itself
+ *   boolean,     // neg
+ *   number,      // min
+ *   number,      // max
+ *   string       // str
+ * ]} CommandCHS
  */
 
 /**
  * SQ command structure
- * @typedef {Array} CommandSQ
- * @property {typeof SQ} 0 The SQ function itself
- * @property {boolean} 1 Case insensitivity
- * @property {string} 2 str - e.g. "something"
+ * @typedef {[
+ *   typeof SQ,   // The SQ function itself
+ *   boolean,     // Case insensitivity
+ *   string       // str - e.g. "something"
+ * ]} CommandSQ
  */
 
 /**
  * EXTN command structure
- * @typedef {Array} CommandEXTN
- * @property {typeof EXTN} 0 The EXTN function itself
- * @property {string} 1 extension function name
+ * @typedef {[
+ *   typeof EXTN,  // The EXTN function itself
+ *   string        // extension function name
+ * ]} CommandEXTN
  */
 
 /**
