@@ -92,6 +92,7 @@ function ID(exp, env) {
 	const [, idx, name] = exp // [ID, idx, name]
 	const start = env.pos;
 	const stack = env.tree.length;
+	const metadata_stack = env.metadata_tree.length;
 	const expr = env.code[idx];
 	if (env.panic || env.depth > env.max_depth) {
 		if (!env.panic)
@@ -103,12 +104,14 @@ function ID(exp, env) {
 	env.rule_names[env.depth] = name;
 	env.start[env.depth] = start;
 	env.stack[env.depth] = stack;
+	env.metadata_stack[env.depth] = metadata_stack;
 	const result = expr[0](expr, env);
 	env.depth -= 1;
 	if (result === false) {
 		if (env.trace) trace_result(exp, env, false);
 		env.pos = start;
 		env.tree.length = stack;
+		env.metadata_tree.length = metadata_stack;
 		return false;
 	}
 	if (name[0] === "_") {
@@ -116,35 +119,43 @@ function ID(exp, env) {
 		if (env.tree.length > stack) {
 			// nested rule results...
 			env.tree = env.tree.slice(0, stack); // deleted
+			env.metadata_tree = env.metadata_tree.slice(0, metadata_stack); // deleted
 		}
 		if (env.trace) trace_result(exp, env, true, start);
 		return true;
 	}
 	// TODO: is this a safe place to register a match?
-	const id = env.last_match_id++;
-	env.matches.push({
+	/**
+	 * @type {Metadata}
+	 */
+	const metadata = {
 		rule: name,
 		rule_id: idx,
 		start: start,
 		end: env.pos,
-		id
-	})
+		id: env.last_match_id++
+	};
 	if (env.tree.length - stack > 1 || name[0] <= "Z") { // if multiple results or first letter capital
 		const result = [name, env.tree.slice(stack)]; // stack..top
+		const metadata_result = [metadata, env.metadata_tree.slice(metadata_stack)]; // parallel structure
 		env.tree = env.tree.slice(0, stack); // delete stack..
+		env.metadata_tree = env.metadata_tree.slice(0, metadata_stack); // delete metadata_stack..
 		env.tree.push(result);
+		env.metadata_tree.push(metadata_result);
 		if (env.trace) trace_result(exp, env, result);
 		return true;
 	}
 	if (env.tree.length === stack) {
 		// terminal string value..
-		const result = [name, env.input.slice(start, env.pos)];
+		const value = env.input.slice(start, env.pos);
+		const result = [name, value];
 		env.tree.push(result);
+		env.metadata_tree.push([metadata, value]);
 		if (env.trace) trace_result(exp, env, result);
 		return true;
 	}
 	if (env.trace) trace_result(exp, env, env.tree[env.tree.length - 1]);
-	return true; //  elide this rule label
+	return true;
 } // ID
 
 /**
@@ -158,6 +169,7 @@ function ALT(exp, env) {
 	if (env.trace) trace_rep(exp, env);
 	const start = env.pos;
 	const stack = env.tree.length;
+	const metadata_stack = env.metadata_tree.length;
 	const ch = env.input[start];
 	for (let i = 0; i < exp[1].length; i += 1) {
 		if (!env.trace && exp.length > 2) {
@@ -169,6 +181,9 @@ function ALT(exp, env) {
 		if (result) return true;
 		if (env.tree.length > stack) {
 			env.tree = env.tree.slice(0, stack);
+		}
+		if (env.metadata_tree.length > metadata_stack) {
+			env.metadata_tree = env.metadata_tree.slice(0, metadata_stack);
 		}
 		env.pos = start; // reset pos and try the next alt
 	}
@@ -191,6 +206,7 @@ function SEQ(exp, env) {
 		let i = 0;
 		let start = env.pos;
 		const stack = env.tree.length;
+		const metadata_stack = env.metadata_tree.length;
 		for (i = 0; i < args.length; i += 1) {
 			const arg = args[i];
 			const result = arg[0](arg, env);
@@ -199,6 +215,9 @@ function SEQ(exp, env) {
 					env.pos = start;
 					if (env.tree.length > stack) {
 						env.tree = env.tree.slice(0, stack);
+					}
+					if (env.metadata_tree.length > metadata_stack) {
+						env.metadata_tree = env.metadata_tree.slice(0, metadata_stack);
 					}
 					return true;
 				}
@@ -236,6 +255,7 @@ function REP(exp, env) {
 	if (env.trace) trace_rep(exp, env);
 	const [_rep, min, max, expr] = exp;
 	const stack = env.tree.length;
+	const metadata_stack = env.metadata_tree.length;
 	let count = 0;
 	let pos = env.pos;
 
@@ -252,6 +272,9 @@ function REP(exp, env) {
 	if (count < min) {
 		if (env.tree.length > stack) {
 			env.tree = env.tree.slice(0, stack);
+		}
+		if (env.metadata_tree.length > metadata_stack) {
+			env.metadata_tree = env.metadata_tree.slice(0, metadata_stack);
 		}
 		return false;
 	}
@@ -274,6 +297,7 @@ function PRE(exp, env) {
 	const [_pre, sign, term] = exp;
 	const start = env.pos;
 	const stack = env.tree.length;
+	const metadata_stack = env.metadata_tree.length;
 	const trace = env.trace;
 	const peak = env.peak;
 	env.trace = false;
@@ -283,6 +307,9 @@ function PRE(exp, env) {
 	if (trace) trace_pre(exp, env, result);
 	if (env.tree.length > stack) {
 		env.tree = env.tree.slice(0, stack);
+	}
+	if (env.metadata_tree.length > metadata_stack) {
+		env.metadata_tree = env.metadata_tree.slice(0, metadata_stack);
 	}
 	env.pos = start;
 	if (sign === "~") {
@@ -447,10 +474,14 @@ function dump_trace(exp, env) {
 
 function infix(exp, env) {
 	const stack = env.stack[env.depth];
+	const metadata_stack = env.metadata_stack[env.depth];
 	if (env.tree.length - stack < 3) return true;
 	let next = stack - 1; // tree stack index
+	let metadata_next = metadata_stack - 1; // metadata tree stack index
 	env.tree[stack] = pratt(0);
 	env.tree.length = stack + 1;
+	env.metadata_tree[metadata_stack] = pratt_metadata(0);
+	env.metadata_tree.length = metadata_stack + 1;
 	return true;
 
 	function pratt(lbp) {
@@ -473,6 +504,30 @@ function infix(exp, env) {
 			}
 			rbp = rbp % 2 === 0 ? rbp - 1 : rbp + 1;
 			result = [op[1], [result, pratt(rbp)]];
+		}
+		return result;
+	}
+
+	function pratt_metadata(lbp) {
+		metadata_next += 1;
+		let result = env.metadata_tree[metadata_next];
+		while (true) {
+			metadata_next += 1;
+			const op = env.metadata_tree[metadata_next];
+			let rbp = op ? 0 : -1;
+			const sfx = op?.[0]?.rule ? op[0].rule.slice(-3) : undefined;
+			if (sfx && sfx[0] === "_") {
+				// _xL or _xR
+				const x = sfx.charCodeAt(1);
+				if (sfx[2] === "L") rbp = (x << 1) + 1;
+				if (sfx[2] === "R") rbp = (x + 1) << 1;
+			}
+			if (rbp < lbp) {
+				metadata_next -= 1; // restore op
+				break;
+			}
+			rbp = rbp % 2 === 0 ? rbp - 1 : rbp + 1;
+			result = [op[0], [result, pratt_metadata(rbp)]];
 		}
 		return result;
 	}
@@ -513,7 +568,15 @@ function quote(exp, env) {
 	const marks = input.slice(start, sot);
 	const eot = input.indexOf(marks, sot);
 	if (eot === -1) return false;
-	env.tree.push(["quote", input.slice(sot, eot)]);
+	const content = input.slice(sot, eot);
+	env.tree.push(["quote", content]);
+	const metadata = {
+		rule: "quote",
+		start: sot,
+		end: eot,
+		id: env.last_match_id++
+	};
+	env.metadata_tree.push([metadata, content]);
 	env.pos = eot + marks.length;
 	if (env.peak < env.pos) env.peak = env.pos;
 	return true;
@@ -528,7 +591,15 @@ function quoter(exp, env) {
 	for (let i = sot - 1; i >= start; i -= 1) marks += input[i];
 	const eot = input.indexOf(marks, sot);
 	if (eot === -1) return false;
-	env.tree.push(["quoter", input.slice(sot, eot)]);
+	const content = input.slice(sot, eot);
+	env.tree.push(["quoter", content]);
+	const metadata = {
+		rule: "quoter",
+		start: sot,
+		end: eot,
+		id: env.last_match_id++
+	};
+	env.metadata_tree.push([metadata, content]);
 	env.pos = eot + marks.length;
 	if (env.peak < env.pos) env.peak = env.pos;
 	return true;
@@ -891,6 +962,7 @@ function compiler(rules) {
 					}
 				}
 				if (expr[0] === SQ) {
+					// TODO icase is unused - bug?
 					const [_SQ, icase, str] = expr;
 					if (str.length === 1) {
 						return [CHS, false, min, max, str];
@@ -1141,6 +1213,7 @@ const defaultEnv = (codex, input) => ({
 	max_depth: 100,
 	rule_names: [], // dynamic stack
 	tree: [], // ptree construction
+	metadata_tree: [], // parallel ptree with metadata
 	matches: [],
 	last_match_id: 0,
 	// fault reporting .........
@@ -1156,6 +1229,7 @@ const defaultEnv = (codex, input) => ({
 	// extensions ..........
 	start: [], // env.pos at start of rule
 	stack: [], // env.tree.length
+	metadata_stack: [], // env.metadata_tree.length
 	indent: [], // <indent>
 	result: true, // final parse result
 });
@@ -1210,6 +1284,7 @@ function parse(codex, input, extend, options) {
 	return {
 		ok: true,
 		ptree: env.tree[0],
+		ptree_metadata: env.metadata_tree[0],
 		show_ptree: (json = false) => show_tree(env.tree[0], json),
 		matches: env.matches,
 	};
@@ -1294,6 +1369,7 @@ export default peg;
  * @property {true} ok
  * @property {(boolean?: false) => string} show_ptree
  * @property {Array} ptree
+ * @property {MetadataTree} ptree_metadata
  * @property {Match[]} matches
  */
 
@@ -1336,6 +1412,7 @@ export default peg;
  * @property {number} peak
  * @property {number} trace_depth
  * @property {Array} tree
+ * @property {MetadataTree} metadata_tree
  * @property {Match[]} matches
  * @property {number} last_match_id
  * @property {Array<Command>} code
@@ -1344,8 +1421,23 @@ export default peg;
  * @property {Array} rule_names // array of strings..?
  * @property {Array} start // array of what?
  * @property {Array} stack // array of what?
+ * @property {Array} metadata_stack
  * @property {Extensions} extend
  * @property {Options} options
+ */
+
+/**
+ * @typedef {[Metadata, ...(Metadata | MetadataTree)]} MetadataTree
+ */
+
+/**
+ * @typedef {Object} Metadata
+ * @property {string} rule
+ * @property {number} rule_id
+ * @property {number} start
+ * @property {number} end
+ * @property {number} id
+ * @property {string} match
  */
 
 /**
