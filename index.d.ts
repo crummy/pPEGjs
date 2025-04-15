@@ -20,8 +20,6 @@ export interface Metadata {
 	children: Metadata[];
 }
 
-export type MetadataTree = Metadata | Metadata[];
-
 /**
  * Match information for a parsed rule
  */
@@ -48,13 +46,11 @@ export interface ParseSuccess {
 	/** Indicates parsing was successful */
 	ok: true;
 	/** The parse tree */
-	ptree: any[];
+	ptree: unknown[];
 	/** Metadata tree with position information */
-	ptree_metadata: MetadataTree;
+	ptree_metadata: Metadata;
 	/** Returns a string representation of the parse tree */
 	show_ptree: (json?: boolean) => string;
-	/** All rule matches from the parse */
-	matches: Match[];
 }
 
 /**
@@ -107,7 +103,7 @@ export type CompileResult = CompileSuccess | CompileFailure;
  * Extension functions
  */
 export interface Extensions {
-	[key: string]: (exp: any, env: Env) => unknown;
+	[key: string]: (exp: unknown, env: Env) => unknown;
 }
 
 /**
@@ -124,13 +120,13 @@ export interface Env {
 	depth: number;
 	max_depth: number;
 	rule_names: string[];
-	tree: any[];
-	metadata_tree: MetadataTree[];
+	tree: unknown[];
+	metadata_tree: Metadata[];
 	matches: Match[];
 	last_match_id: number;
 	panic: string;
 	fault_pos: number;
-	fault_tree: any[];
+	fault_tree: unknown[];
 	fault_rule: string | null;
 	fault_exp: string | null;
 	trace: boolean | string;
@@ -146,7 +142,7 @@ export interface Env {
  * Instruction code
  */
 export interface Codex {
-	rules: any[];
+	rules: unknown[];
 	names: Record<string, number>;
 	code: Command[];
 	start: CommandID;
@@ -174,7 +170,7 @@ export type Command =
  * ID command structure
  */
 export type CommandID = [
-	Function, // The ID function itself
+	(...args: unknown[]) => unknown, // The ID function itself
 	number, // The index in the code array
 	string, // The rule name
 ];
@@ -183,7 +179,7 @@ export type CommandID = [
  * ALT command structure
  */
 export type CommandALT = [
-	Function, // The ALT function itself
+	(...args: unknown[]) => unknown, // The ALT function itself
 	Array<Command>, // Arguments to the ALT function
 	Array<string>?, // Guards
 ];
@@ -192,7 +188,7 @@ export type CommandALT = [
  * SEQ command structure
  */
 export type CommandSEQ = [
-	Function, // The SEQ function itself
+	(...args: unknown[]) => unknown, // The SEQ function itself
 	number, // min
 	number, // max
 	Array<Command>, // exp
@@ -202,7 +198,7 @@ export type CommandSEQ = [
  * REP command structure
  */
 export type CommandREP = [
-	Function, // The REP function itself
+	(...args: unknown[]) => unknown, // The REP function itself
 	number, // min
 	number, // max
 	Command, // expr
@@ -212,7 +208,7 @@ export type CommandREP = [
  * PRE command structure
  */
 export type CommandPRE = [
-	Function, // The PRE function itself
+	(...args: unknown[]) => unknown, // The PRE function itself
 	string, // sign
 	Command, // term
 ];
@@ -221,7 +217,7 @@ export type CommandPRE = [
  * CHS command structure
  */
 export type CommandCHS = [
-	Function, // The CHS function itself
+	(...args: unknown[]) => unknown, // The CHS function itself
 	boolean, // neg
 	number, // min
 	number, // max
@@ -232,7 +228,7 @@ export type CommandCHS = [
  * SQ command structure
  */
 export type CommandSQ = [
-	Function, // The SQ function itself
+	(...args: unknown[]) => unknown, // The SQ function itself
 	boolean, // Case insensitivity
 	string, // str - e.g. "something"
 ];
@@ -241,6 +237,6 @@ export type CommandSQ = [
  * EXTN command structure
  */
 export type CommandEXTN = [
-	Function, // The EXTN function itself
+	(...args: unknown[]) => unknown, // The EXTN function itself
 	string, // extension function name
 ];

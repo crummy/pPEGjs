@@ -1227,7 +1227,6 @@ const defaultEnv = (codex, input) => ({
 	rule_names: [], // dynamic stack
 	tree: [], // ptree construction
 	metadata_tree: [], // parallel ptree with metadata
-	matches: [],
 	last_match_id: 0,
 	// fault reporting .........
 	panic: "", // crash msg
@@ -1293,7 +1292,6 @@ function parse(codex, input, extend, options) {
 		ptree: env.tree[0],
 		ptree_metadata: env.metadata_tree[0],
 		show_ptree: (json = false) => show_tree(env.tree[0], json),
-		matches: env.matches,
 	};
 }
 
