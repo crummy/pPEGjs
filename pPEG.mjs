@@ -84,12 +84,12 @@ const pPEG_codex = compiler(pPEG_rules);
 
 /**
  * Rule lookup - finds the appropriate rule for the given rule name and executes it
- * @param {CommandID} exp The rule name to execute
- * @param {Env} env Environment configuration
+ * @param {import(".").CommandID} exp The rule name to execute
+ * @param {import(".").Env} env Environment configuration
  * @returns {boolean} True if the command was successfully parsed and executed
  */
 function ID(exp, env) {
-	const [, idx, name] = exp // [ID, idx, name]
+	const [, idx, name] = exp; // [ID, idx, name]
 	const start = env.pos;
 	const stack = env.tree.length;
 	const metadata_stack = env.metadata_tree.length;
@@ -124,24 +124,25 @@ function ID(exp, env) {
 		if (env.trace) trace_result(exp, env, true, start);
 		return true;
 	}
-	// TODO: is this a safe place to register a match?
 	/**
-	 * @type {Metadata}
+	 * @type {import(".").Metadata}
 	 */
 	const metadata = {
 		rule: name,
 		rule_id: idx,
 		start: start,
 		end: env.pos,
-		id: env.last_match_id++
+		id: env.last_match_id++,
+		children: [],
 	};
-	if (env.tree.length - stack > 1 || name[0] <= "Z") { // if multiple results or first letter capital
+	if (env.tree.length - stack > 1 || name[0] <= "Z") {
+		// if multiple results or first letter capital
 		const result = [name, env.tree.slice(stack)]; // stack..top
-		const metadata_result = [metadata, env.metadata_tree.slice(metadata_stack)]; // parallel structure
+		metadata.children = env.metadata_tree.slice(metadata_stack); // Add children directly
 		env.tree = env.tree.slice(0, stack); // delete stack..
 		env.metadata_tree = env.metadata_tree.slice(0, metadata_stack); // delete metadata_stack..
 		env.tree.push(result);
-		env.metadata_tree.push(metadata_result);
+		env.metadata_tree.push(metadata);
 		if (env.trace) trace_result(exp, env, result);
 		return true;
 	}
@@ -149,8 +150,9 @@ function ID(exp, env) {
 		// terminal string value..
 		const value = env.input.slice(start, env.pos);
 		const result = [name, value];
+		metadata.match = value; // Store the match string directly in metadata
 		env.tree.push(result);
-		env.metadata_tree.push([metadata, value]);
+		env.metadata_tree.push(metadata);
 		if (env.trace) trace_result(exp, env, result);
 		return true;
 	}
@@ -160,8 +162,8 @@ function ID(exp, env) {
 
 /**
  *
- * @param {CommandALT} exp
- * @param {Env} env
+ * @param {import(".").CommandALT} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  */
 function ALT(exp, env) {
@@ -192,8 +194,8 @@ function ALT(exp, env) {
 
 /**
  *
- * @param {CommandSEQ} exp
- * @param {Env} env
+ * @param {import(".").CommandSEQ} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  */
 function SEQ(exp, env) {
@@ -241,8 +243,8 @@ function SEQ(exp, env) {
 /**
  * Handles repetition patterns in parsing expressions (*, +, ?, or custom ranges)
  *
- * @param {CommandREP} exp - The repetition expression [REP, min, max, expr]
- * @param {Env} env - The parsing environment
+ * @param {import(".").CommandREP} exp - The repetition expression [REP, min, max, expr]
+ * @param {import(".").Env} env - The parsing environment
  * @returns {boolean} - True if the repetition pattern matched successfully (at least min times)
  *
  * The function attempts to match the expression repeatedly between min and max times:
@@ -284,8 +286,8 @@ function REP(exp, env) {
 /**
  * Handles prefix operators in parsing expressions
  *
- * @param {CommandPRE} exp
- * @param {Env} env
+ * @param {import(".").CommandPRE} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  *
  * Supports three prefix operators:
@@ -326,8 +328,8 @@ function PRE(exp, env) {
  * Matches a string literal at the current position in the input.
  * Handles single-quoted string literals from the grammar, with optional case-insensitivity.
  *
- * @param {CommandSQ} exp
- * @param {Env} env
+ * @param {import(".").CommandSQ} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  */
 function SQ(exp, env) {
@@ -358,8 +360,8 @@ function SQ(exp, env) {
 
 /**
  *
- * @param {CommandCHS} exp
- * @param {Env} env
+ * @param {import(".").CommandCHS} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  */
 function CHS(exp, env) {
@@ -403,8 +405,8 @@ function CHS(exp, env) {
 
 /**
  *
- * @param {CommandEXTN} exp
- * @param {Env} env
+ * @param {import(".").CommandEXTN} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  */
 function EXTN(exp, env) {
@@ -515,7 +517,7 @@ function infix(exp, env) {
 			metadata_next += 1;
 			const op = env.metadata_tree[metadata_next];
 			let rbp = op ? 0 : -1;
-			const sfx = op?.[0]?.rule ? op[0].rule.slice(-3) : undefined;
+			const sfx = op?.[0]?.rule ? op.rule.slice(-3) : undefined;
 			if (sfx && sfx[0] === "_") {
 				// _xL or _xR
 				const x = sfx.charCodeAt(1);
@@ -527,7 +529,15 @@ function infix(exp, env) {
 				break;
 			}
 			rbp = rbp % 2 === 0 ? rbp - 1 : rbp + 1;
-			result = [op[0], [result, pratt_metadata(rbp)]];
+			// Create a new metadata object for the operation
+			const opMetadata = {
+				rule: op.rule,
+				start: op.start,
+				end: op.end,
+				id: op.id,
+				children: [result, pratt_metadata(rbp)],
+			};
+			result = opMetadata;
 		}
 		return result;
 	}
@@ -574,9 +584,11 @@ function quote(exp, env) {
 		rule: "quote",
 		start: sot,
 		end: eot,
-		id: env.last_match_id++
+		id: env.last_match_id++,
+		match: content,
+		children: [],
 	};
-	env.metadata_tree.push([metadata, content]);
+	env.metadata_tree.push(metadata);
 	env.pos = eot + marks.length;
 	if (env.peak < env.pos) env.peak = env.pos;
 	return true;
@@ -597,9 +609,11 @@ function quoter(exp, env) {
 		rule: "quoter",
 		start: sot,
 		end: eot,
-		id: env.last_match_id++
+		id: env.last_match_id++,
+		match: content,
+		children: [],
 	};
-	env.metadata_tree.push([metadata, content]);
+	env.metadata_tree.push(metadata);
 	env.pos = eot + marks.length;
 	if (env.peak < env.pos) env.peak = env.pos;
 	return true;
@@ -722,11 +736,10 @@ function line_label(n) {
 	return ln;
 }
 
-
 /**
  * Trace
- * @param {Exp} exp
- * @param {Env} env
+ * @param {import(".").Exp} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  */
 function trace_trigger(exp, env) {
@@ -741,7 +754,7 @@ function trace_trigger(exp, env) {
 /**
  * Decides whether to print a trace report
  * @param {string} name
- * @param {Env} env
+ * @param {import(".").Env} env
  */
 function trace_enter(name, env) {
 	if (env.trace_depth === -1) {
@@ -814,7 +827,7 @@ function show_input(env, i, j) {
 
 /**
  *
- * @param {Env} env
+ * @param {import(".").Env} env
  * @returns {string}
  */
 function indent(env) {
@@ -826,7 +839,7 @@ function indent(env) {
 
 /**
  * exp decode display
- * @param {Exp|string} exp
+ * @param {import(".").Exp|string} exp
  * @returns {string} Human readable expression
  */
 function exp_show(exp) {
@@ -900,7 +913,7 @@ function str_esc(s) {
 /**
  * The compiler turns ptree rules into instruction code
  * @param {[string, ...any]} rules
- * @returns {Codex}
+ * @returns {import(".").Codex}
  */
 function compiler(rules) {
 	const names = {};
@@ -1199,7 +1212,7 @@ function trace_report(report) {
  *
  * @param codex
  * @param {string} input
- * @returns Env
+ * @returns {import(".").Env}
  */
 const defaultEnv = (codex, input) => ({
 	codex, // {rules, names, code, start}
@@ -1235,17 +1248,11 @@ const defaultEnv = (codex, input) => ({
 });
 
 /**
- * Extension functions
- * @typedef {Object<string, (any, Env) => unknown>} Extensions
- *
- */
-
-/**
- * @param {Codex} codex
+ * @param {import(".").Codex} codex
  * @param {string} input
- * @param {Extensions} extend
- * @param {Options} options
- * @return { ParseSuccess | ParseFailure }
+ * @param {import(".").Extensions} extend
+ * @param {import(".").Options} options
+ * @return {import(".").ParseSuccess | import(".").ParseFailure}
  */
 function parse(codex, input, extend, options) {
 	const env = defaultEnv(codex, input);
@@ -1321,7 +1328,7 @@ function err_report(env) {
  * @param {string} grammar A grammar, e.g. "number = digit+\ndigit = [0-9]"
  * @param {Object?} extend
  * @param {Object?} options
- * @returns {(CompileSuccess|CompileFailure)} A compiled parser object, or an object describing the failure to parse
+ * @returns {(import(".").CompileSuccess|import(".").CompileFailure)} A compiled parser object, or an object describing the failure to parse
  */
 function compile(grammar, extend, options) {
 	const peg = parse(pPEG_codex, grammar, {}, options);
@@ -1355,192 +1362,3 @@ function compile(grammar, extend, options) {
 const peg = { compile, show_tree };
 
 export default peg;
-
-/**
- * @typedef {Object} Codex
- * @property {Object} names
- * @property {Array} code
- * @property {((function(*, *): (boolean))|*|number)[]} start
- * @property rules
- */
-
-/**
- * @typedef {Object} ParseSuccess
- * @property {true} ok
- * @property {(boolean?: false) => string} show_ptree
- * @property {Array} ptree
- * @property {MetadataTree} ptree_metadata
- * @property {Match[]} matches
- */
-
-/**
- * @typedef {Object} ParseFailure
- * @property {false} ok
- * @property {() => string} show_err
- * @property {number} err
- * @property {Env} env
- */
-
-/**
- * @typedef {Object} Options
- * @property {boolean?} trace
- * @property {boolean?} short
- */
-
-/**
- * @typedef {Object} Match
- * @property {string} name
- * @property {number} rule_id
- * @property {number} start
- * @property {number} end
- * @property {number} id
- */
-
-/**
- * Environment configuration object
- * @typedef {Object} Env
- * @property {boolean | string} trace
- * @property {Options} options
- * @property {string} panic
- * @property {Array} fault_tree
- * @property {boolean} result
- * @property {number} pos
- * @property {string} input
- * @property {number} fault_pos
- * @property {string | null} fault_rule
- * @property {string | null} fault_exp
- * @property {number} peak
- * @property {number} trace_depth
- * @property {Array} tree
- * @property {MetadataTree} metadata_tree
- * @property {Match[]} matches
- * @property {number} last_match_id
- * @property {Array<Command>} code
- * @property {number} depth
- * @property {number} max_depth
- * @property {Array} rule_names // array of strings..?
- * @property {Array} start // array of what?
- * @property {Array} stack // array of what?
- * @property {Array} metadata_stack
- * @property {Extensions} extend
- * @property {Options} options
- */
-
-/**
- * @typedef {[Metadata, ...(Metadata | MetadataTree)]} MetadataTree
- */
-
-/**
- * @typedef {Object} Metadata
- * @property {string} rule
- * @property {number} rule_id
- * @property {number} start
- * @property {number} end
- * @property {number} id
- * @property {string} match
- */
-
-/**
- * @typedef {ParseSuccess} CompileSuccess
- * @property {(input: string, options?: any) => any} parse
- */
-
-/**
- * @typedef {ParseFailure} CompileFailure
- * @param {string} panic
- * @property {(input: string, options?: any) => any} parse
- */
-
-
-
-/**
- * Instruction code
- * @typedef {Object} Codex
- * @param {[Command]} start
- * @param {Array} rules
- * @param code
- * @param name
- */
-
-/**
- * A recursive array type that starts with a string followed by strings or nested arrays
- * @typedef {[string, ...(string|Exp)[]]} Exp
- */
-
-/**
- * ID command structure
- * @typedef {[
- *   typeof ID,  // The ID function itself
- *   number,     // The index in the code array
- *   string      // The rule name
- * ]} CommandID
- */
-
-/**
- * ALT command structure
- * @typedef {[
- *   typeof ALT,       // The ALT function itself
- *   Array<Command>,   // Arguments to the ALT function
- *   Array<string>?    // Guards
- * ]} CommandALT
- */
-
-/**
- * SEQ command structure
- * @typedef {[
- *   typeof SEQ,    // The SEQ function itself
- *   number,        // min
- *   number,        // max
- *   Array<Command> // exp
- * ]} CommandSEQ
- */
-
-/**
- * REP command structure
- * @typedef {[
- *   typeof REP,  // The REP function itself
- *   number,      // min
- *   number,      // max
- *   Command      // expr
- * ]} CommandREP
- */
-
-/** PRE command structure
- * @typedef {[
- *   typeof PRE,  // The PRE function itself
- *   string,      // sign
- *   Command      // term
- * ]} CommandPRE
- */
-
-/** CHS command structure
- * @typedef {[
- *   typeof CHS,  // The CHS function itself
- *   boolean,     // neg
- *   number,      // min
- *   number,      // max
- *   string       // str
- * ]} CommandCHS
- */
-
-/**
- * SQ command structure
- * @typedef {[
- *   typeof SQ,   // The SQ function itself
- *   boolean,     // Case insensitivity
- *   string       // str - e.g. "something"
- * ]} CommandSQ
- */
-
-/**
- * EXTN command structure
- * @typedef {[
- *   typeof EXTN,  // The EXTN function itself
- *   string        // extension function name
- * ]} CommandEXTN
- */
-
-/**
- * A parsed grammar command
- * @typedef {CommandID|CommandALT|CommandSEQ|CommandREP|CommandPRE|CommandCHS|CommandSQ|CommandEXTN} Command
- */

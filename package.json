@@ -10,8 +10,7 @@
 	},
 	"scripts": {
 		"test": "node peg-play.mjs tests",
-		"format": "biome format --write *.mjs",
-		"types": "npx -p typescript tsc --declaration --allowJs --emitDeclarationOnly --outDir types pPEG.mjs"
+		"format": "biome format --write *.mjs *.ts"
 	},
 	"repository": {
 		"type": "git",
