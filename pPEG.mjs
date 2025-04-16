@@ -839,7 +839,7 @@ function indent(env) {
 
 /**
  * exp decode display
- * @param {import(".").Exp|string} exp
+ * @param {import(".").Command|string} exp
  * @returns {string} Human readable expression
  */
 function exp_show(exp) {
@@ -849,7 +849,6 @@ function exp_show(exp) {
 			return exp[2];
 		case SQ:
 			return `'${str_esc(exp[2])}'`;
-		// case DQ: return '"'+str_esc(exp[2])+'"';
 		case CHS: {
 			const [_, neg, min, max, str] = exp;
 			const sign = neg ? "~" : "";
@@ -1324,9 +1323,9 @@ function err_report(env) {
 /**
  *
  * @param {string} grammar A grammar, e.g. "number = digit+\ndigit = [0-9]"
- * @param {Object?} extend
- * @param {Object?} options
- * @returns {(import(".").CompileSuccess|import(".").CompileFailure)} A compiled parser object, or an object describing the failure to parse
+ * @param {import(".").Extensions?} extend
+ * @param {import(".").Options?} options
+ * @returns {import(".").CompileResult} A compiled parser object, or an object describing the failure to parse
  */
 function compile(grammar, extend, options) {
 	const peg = parse(pPEG_codex, grammar, {}, options);
@@ -1336,7 +1335,7 @@ function compile(grammar, extend, options) {
 			env: peg.env,
 			err: peg.err,
 			ok: false,
-			panic: `grammar error\n${peg.panic}`,
+			panic: `grammar error\n${peg.env.panic}`,
 			parse: () => peg,
 		};
 	}

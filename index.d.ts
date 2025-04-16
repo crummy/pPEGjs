@@ -46,7 +46,7 @@ export interface ParseSuccess {
 	/** Indicates parsing was successful */
 	ok: true;
 	/** The parse tree */
-	ptree: unknown[];
+	ptree: Exp[];
 	/** Metadata tree with position information */
 	ptree_metadata: Metadata;
 	/** Returns a string representation of the parse tree */
@@ -170,7 +170,7 @@ export type Command =
  * ID command structure
  */
 export type CommandID = [
-	(...args: unknown[]) => unknown, // The ID function itself
+	(...args: unknown[]) => boolean, // The ID function itself
 	number, // The index in the code array
 	string, // The rule name
 ];
@@ -179,7 +179,7 @@ export type CommandID = [
  * ALT command structure
  */
 export type CommandALT = [
-	(...args: unknown[]) => unknown, // The ALT function itself
+	(...args: unknown[]) => boolean, // The ALT function itself
 	Array<Command>, // Arguments to the ALT function
 	Array<string>?, // Guards
 ];
@@ -188,7 +188,7 @@ export type CommandALT = [
  * SEQ command structure
  */
 export type CommandSEQ = [
-	(...args: unknown[]) => unknown, // The SEQ function itself
+	(...args: unknown[]) => boolean, // The SEQ function itself
 	number, // min
 	number, // max
 	Array<Command>, // exp
@@ -198,7 +198,7 @@ export type CommandSEQ = [
  * REP command structure
  */
 export type CommandREP = [
-	(...args: unknown[]) => unknown, // The REP function itself
+	(...args: unknown[]) => boolean, // The REP function itself
 	number, // min
 	number, // max
 	Command, // expr
@@ -208,7 +208,7 @@ export type CommandREP = [
  * PRE command structure
  */
 export type CommandPRE = [
-	(...args: unknown[]) => unknown, // The PRE function itself
+	(...args: unknown[]) => boolean, // The PRE function itself
 	string, // sign
 	Command, // term
 ];
@@ -217,7 +217,7 @@ export type CommandPRE = [
  * CHS command structure
  */
 export type CommandCHS = [
-	(...args: unknown[]) => unknown, // The CHS function itself
+	(...args: unknown[]) => boolean, // The CHS function itself
 	boolean, // neg
 	number, // min
 	number, // max
@@ -228,7 +228,7 @@ export type CommandCHS = [
  * SQ command structure
  */
 export type CommandSQ = [
-	(...args: unknown[]) => unknown, // The SQ function itself
+	(...args: unknown[]) => boolean, // The SQ function itself
 	boolean, // Case insensitivity
 	string, // str - e.g. "something"
 ];
@@ -237,6 +237,6 @@ export type CommandSQ = [
  * EXTN command structure
  */
 export type CommandEXTN = [
-	(...args: unknown[]) => unknown, // The EXTN function itself
+	(...args: unknown[]) => boolean, // The EXTN function itself
 	string, // extension function name
 ];
