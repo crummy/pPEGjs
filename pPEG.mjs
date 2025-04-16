@@ -98,7 +98,9 @@ function ID(exp, env) {
 		if (!env.panic)
 			env.panic = `max depth of recursion exceeded in rules:\n ... ${env.rule_names.slice(-6).join(" ")}\n`;
 
-		// Add error metadata
+		/**
+		 * @type {import(".").Metadata}
+		 */
 		const errorMetadata = {
 			rule: name,
 			rule_id: idx,
@@ -128,6 +130,9 @@ function ID(exp, env) {
 
 		// Add error metadata if there isn't already metadata for this failure
 		if (env.metadata_tree.length === metadata_stack) {
+			/**
+			 * @type {import(".").Metadata}
+			 */
 			const errorMetadata = {
 				rule: name,
 				rule_id: idx,
@@ -257,13 +262,12 @@ function SEQ(exp, env) {
 					}
 					return true;
 				}
-				if (env.pos > start && env.pos > env.fault_pos) {
-					env.fault_pos = env.pos;
-					env.fault_tree = env.tree.slice(0);
-					env.fault_rule = env.rule_names[env.depth];
-					env.fault_exp = exp[3][i];
+				if (env.pos > start) {
 
 					// Add error metadata for this sequence element
+					/**
+					 * @type {import(".").Metadata}
+					 */
 					const errorMetadata = {
 						rule: env.rule_names[env.depth] || "sequence",
 						start: start,
@@ -528,14 +532,9 @@ function EXTN(exp, env) {
 	// key = sigil || key;
 	const fn = env.extend[key] || builtin(key);
 	if (!fn) {
-		if (env.pos > env.fault_pos) {
-			env.fault_pos = env.pos;
-			env.fault_tree = env.tree.slice(0);
-			env.fault_rule = env.rule_names[env.depth];
-			env.fault_exp = `missing extension: ${exp[1]}`;
-		}
-
-		// Add error metadata for missing extension function
+		/**
+		 * @type {import(".").Metadata}
+		 */
 		const errorMetadata = {
 			rule: "extension",
 			start: env.pos,
@@ -556,7 +555,9 @@ function EXTN(exp, env) {
 		if (env.trace) trace_extn(exp, env, result);
 		if (result) return true; // allow any JS truthy return
 
-		// Add error metadata for extension function failure
+		/**
+		 * @type {import(".").Metadata}
+		 */
 		const errorMetadata = {
 			rule: "extension",
 			start: env.pos,
@@ -575,7 +576,9 @@ function EXTN(exp, env) {
 		// treat extn exceptions as panic failures
 		env.panic = err;
 
-		// Add error metadata for extension function exception
+		/**
+		 * @type {import(".").Metadata}
+		 */
 		const errorMetadata = {
 			rule: "extension",
 			start: env.pos,
@@ -713,7 +716,7 @@ function same_match(exp, env) {
 			break;
 		}
 	}
-	if (prior === "") return true; // '' empty match deafult (no prior value)
+	if (prior === "") return true; // '' empty match default (no prior value)
 	if (env.input.startsWith(prior, env.pos)) {
 		env.pos += prior.length;
 		return true;
@@ -1092,7 +1095,7 @@ function compiler(rules) {
 	/**
 	 * Converts a parsed expression into a Command tuple for execution
 	 *
-	 * @param {[string, any]} exp The parsed expression array where the first element is the operation type
+	 * @param {[string, ...unknown]} exp The parsed expression array where the first element is the operation type
 	 *                             and subsequent elements are operation-specific arguments
 	 * @returns {Command} Tuple containing the function to execute the rule and its arguments
 	 */
@@ -1102,7 +1105,9 @@ function compiler(rules) {
 			case "id": {
 				const name = exp[1];
 				const index = names[name];
-				if (index === undefined) throw `Undefined rule: ${name}`;
+				if (index === undefined) {
+					throw `Undefined rule: ${name}`;
+				}
 				return [ID, index, name];
 			}
 			case "alt":
@@ -1287,7 +1292,7 @@ function escape_codes(str) {
 // -- pretty print ptree ----------------------------------------------
 
 /**
- * @param {Array} ptree
+ * @param {Exp[]} ptree
  * @param {boolean=false} json
  * @returns {string}
  */
@@ -1299,7 +1304,7 @@ function show_tree(ptree, json = false) {
 
 /**
  *
- * @param {Array} ptree
+ * @param {Exp[]} ptree
  * @param {number} inset
  * @param {number} last int bit map, 1 if after last kid
  * @returns {string}
@@ -1328,6 +1333,7 @@ function show_ptree(ptree, inset, last) {
 }
 
 /**
+ * TODO should this not just be replaced with JSON.stringify...
  * @param {Array} ptree
  * @param {string} inset
  * @returns {string}
@@ -1382,10 +1388,6 @@ const defaultEnv = (codex, input) => ({
 	last_match_id: 0,
 	// fault reporting .........
 	panic: "", // crash msg
-	fault_pos: -1,
-	fault_tree: [],
-	fault_rule: null,
-	fault_exp: null,
 	// trace reporting .......
 	trace: false, // rule name or true
 	trace_depth: -1, // active trace depth
@@ -1419,10 +1421,10 @@ function parse(codex, input, extend, options) {
 	 * @type {import(".").Error} error
 	 */
 	let error;
-	if (env.tree.length !== 1) {
-		error = { type: "internal_error", message: "Bad ptree"}
-	} else if (env.panic) {
+	if (env.panic) {
 		error = {type: "internal_panic", message: env.panic}
+	} else if (env.tree.length !== 1) {
+		error = { type: "internal_error", message: "Bad ptree"}
 	} else if (!result) {
 		error = { type: "parse_failed", message: "Failed to parse input"}
 	} else if (env.pos < input.length && !env.options.short) {
@@ -1430,7 +1432,9 @@ function parse(codex, input, extend, options) {
 	}
 
 	if (error) {
-		// Create root error metadata if none exists
+		/**
+		 * @type {import(".").Metadata}
+		 */
 		const errorMetadata = {
 			rule: "root",
 			start: 0,
@@ -1439,7 +1443,13 @@ function parse(codex, input, extend, options) {
 			children: [],
 			error,
 		};
-		env.metadata_tree[0].children.push(errorMetadata)
+		// Push on the end, or create tree if it's empty
+		// A little awkward, maybe metadata_tree should not be an array?
+		if (env.metadata_tree[0]) {
+			env.metadata_tree[0].children.push(errorMetadata)
+		} else {
+			env.metadata_tree.push(errorMetadata)
+		}
 
 		// returns env for show_err to sort out later
 		env.result = result;
@@ -1449,44 +1459,18 @@ function parse(codex, input, extend, options) {
 		return {
 			ok: false,
 			env,
-			show_err: () => err_report(env),
 			ptree_metadata: env.metadata_tree[0],
-			error
 		};
 	}
 
+	/**
+	 * @type {import(".").ParseSuccess}
+	 */
 	return {
 		ok: true,
 		ptree: env.tree[0],
 		ptree_metadata: env.metadata_tree[0],
-		show_ptree: (json = false) => show_tree(env.tree[0], json),
 	};
-}
-
-/**
- *
- * @param {Env} env
- * @returns {string}
- */
-function err_report(env) {
-	let report = env.panic;
-	for (let i = 0; i < env.fault_tree.length; i += 1) {
-		report += show_tree(env.fault_tree[i]);
-		report += "\n";
-	}
-	if (env.result && env.pos < env.input.length) {
-		const line = line_number(env.input, env.pos);
-		report += `Fell short at line: ${line}\n`;
-	} else {
-		report += "Failed ";
-		if (env.fault_pos > -1) {
-			report += `in rule: ${env.fault_rule}, expected: ${exp_show(env.fault_exp)}, `;
-		}
-		const line = line_number(env.input, env.peak);
-		report += `at line: ${line}\n`;
-	}
-	report += line_report(env.input, env.peak);
-	return report;
 }
 
 /**
@@ -1499,32 +1483,71 @@ function err_report(env) {
 function compile(grammar, extend, options) {
 	const peg = parse(pPEG_codex, grammar, {}, options);
 	if (!peg.ok) {
+		if (!peg.ptree_metadata.error) {
+			peg.ptree_metadata.error = {
+				type: "grammar_error",
+				message: peg.env.panic
+			}
+		}
+		/**
+		 * @type {import(".").CompileFailure}
+		 */
 		return {
-			show_err: peg.show_err,
 			env: peg.env,
-			err: peg.err,
 			ok: false,
-			panic: `grammar error\n${peg.env.panic}`,
-			parse: () => peg,
+			ptree_metadata: peg.ptree_metadata
 		};
 	}
 	try {
 		peg.codex = compiler(peg.ptree[1]);
 	} catch (err) {
+		if (!peg.ptree_metadata.error) {
+			peg.ptree_metadata.error = {
+				type: "uncaught_error",
+				message: err
+			}
+		}
+		/**
+		 * @type {import(".").CompileError}
+		 */
 		return {
-			err: 1,
 			ok: false,
-			parse: () => peg,
-			show_err: () => `grammar compile error\n${err}`,
+			env: peg.env,
+			ptree_metadata: peg.ptree_metadata
 		};
 	}
 	return {
-		show_ptree: peg.show_ptree,
 		ok: true,
 		parse: (input, options) => parse(peg.codex, input, extend, options),
 	};
 }
 
-const peg = { compile, show_tree };
+/**
+ *
+ * @param {import(".").Metadata} metadata
+ */
+function show_err(metadata) {
+	/**
+	 * @type {string[]}
+	 */
+	const errors = []
+
+	/**
+	 * @param {import(".").Metadata} metadata
+	 */
+	function addErrors(metadata) {
+		if (metadata.error) {
+			errors.push(`${metadata.error.type}: ${metadata.error.message}`)
+		}
+		metadata.children.map(addErrors)
+	}
+	addErrors(metadata)
+	if (errors.length === 0) {
+		return "No errors."
+	}
+	return `Encountered ${errors.length} errors: ${errors}`
+}
+
+const peg = { compile, show_tree, show_err };
 
 export default peg;

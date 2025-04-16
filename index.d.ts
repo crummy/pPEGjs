@@ -72,7 +72,6 @@ export interface ParseFailure {
     ok: false;
     /** Internal environment state */
     env: Env;
-    error: Error;
     /** Metadata tree with position information */
     ptree_metadata: Metadata;
 }
@@ -95,7 +94,7 @@ export interface CompileSuccess {
 export interface CompileFailure {
     /** Indicates compilation failed */
     ok: false;
-    error: Error;
+    env: Env;
     /** Metadata tree with position information */
     ptree_metadata: Metadata;
 }
@@ -123,15 +122,11 @@ export interface Env {
     depth: number;
     max_depth: number;
     rule_names: string[];
-    tree: unknown[];
-    metadata_tree: Metadata[]; // why is this an array...
+    tree: Exp[];
+    metadata_tree: Metadata[];
     matches: Match[];
     last_match_id: number;
     panic: string;
-    fault_pos: number;
-    fault_tree: unknown[];
-    fault_rule: string | null;
-    fault_exp: string | null;
     trace: boolean | string;
     trace_depth: number;
     start: number[];
