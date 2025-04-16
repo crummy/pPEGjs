@@ -97,6 +97,22 @@ function ID(exp, env) {
 	if (env.panic || env.depth > env.max_depth) {
 		if (!env.panic)
 			env.panic = `max depth of recursion exceeded in rules:\n ... ${env.rule_names.slice(-6).join(" ")}\n`;
+
+		// Add error metadata
+		const errorMetadata = {
+			rule: name,
+			rule_id: idx,
+			start: start,
+			end: env.pos,
+			id: env.last_match_id++,
+			children: [],
+			error: {
+				type: "max_depth_exceeded",
+				message: `Maximum recursion depth exceeded in rule: ${name}`,
+			},
+		};
+		env.metadata_tree.push(errorMetadata);
+
 		return false;
 	}
 	if (env.trace) trace_enter(name, env);
@@ -109,6 +125,24 @@ function ID(exp, env) {
 	env.depth -= 1;
 	if (result === false) {
 		if (env.trace) trace_result(exp, env, false);
+
+		// Add error metadata if there isn't already metadata for this failure
+		if (env.metadata_tree.length === metadata_stack) {
+			const errorMetadata = {
+				rule: name,
+				rule_id: idx,
+				start: start,
+				end: env.pos,
+				id: env.last_match_id++,
+				children: [],
+				error: {
+					type: "rule_match_failed",
+					message: `Failed to match rule: ${name}`,
+				},
+			};
+			env.metadata_tree.push(errorMetadata);
+		}
+
 		env.pos = start;
 		env.tree.length = stack;
 		env.metadata_tree.length = metadata_stack;
@@ -228,6 +262,27 @@ function SEQ(exp, env) {
 					env.fault_tree = env.tree.slice(0);
 					env.fault_rule = env.rule_names[env.depth];
 					env.fault_exp = exp[3][i];
+
+					// Add error metadata for this sequence element
+					const errorMetadata = {
+						rule: env.rule_names[env.depth] || "sequence",
+						start: start,
+						end: env.pos,
+						id: env.last_match_id++,
+						children: env.metadata_tree.slice(metadata_stack),
+						error: {
+							type: "sequence_element_failed",
+							message: `Failed to match element ${i} in sequence rule: ${env.rule_names[env.depth]}`,
+						},
+					};
+
+					// Don't add if we already have an error at this level
+					if (
+						env.metadata_tree.length === metadata_stack ||
+						!env.metadata_tree[env.metadata_tree.length - 1].error
+					) {
+						env.metadata_tree.push(errorMetadata);
+					}
 				}
 				return false;
 			}
@@ -272,6 +327,27 @@ function REP(exp, env) {
 	}
 
 	if (count < min) {
+		// Add error metadata for repetition failure
+		const errorMetadata = {
+			rule: env.rule_names[env.depth] || "repetition",
+			start: pos,
+			end: env.pos,
+			id: env.last_match_id++,
+			children: env.metadata_tree.slice(metadata_stack),
+			error: {
+				type: "repetition_min_not_met",
+				message: `Expected at least ${min} repetitions, but got ${count}`,
+			},
+		};
+
+		// Don't duplicate error information
+		if (
+			env.metadata_tree.length === metadata_stack ||
+			!env.metadata_tree[env.metadata_tree.length - 1].error
+		) {
+			env.metadata_tree.push(errorMetadata);
+		}
+
 		if (env.tree.length > stack) {
 			env.tree = env.tree.slice(0, stack);
 		}
@@ -347,6 +423,21 @@ function SQ(exp, env) {
 		if (icase && pos < input.length) char = char.toUpperCase();
 		if (str[i] !== char) {
 			env.pos = start;
+
+			// Add error metadata for string match failure
+			const errorMetadata = {
+				rule: "string_literal",
+				start: start,
+				end: pos,
+				id: env.last_match_id++,
+				children: [],
+				error: {
+					type: "string_literal_mismatch",
+					message: `Expected '${str}' at position ${start}, found '${input.slice(start, start + 10)}...'`,
+				},
+			};
+			env.metadata_tree.push(errorMetadata);
+
 			if (env.trace) trace_chars_fail(exp, env);
 			return false;
 		}
@@ -394,6 +485,23 @@ function CHS(exp, env) {
 		if (count === max) break;
 	} // min..max loop
 	if (count < min) {
+		// Add error metadata for character class failure
+		const charClass = neg ? `not in [${str}]` : `in [${str}]`;
+		const foundChar = pos < input.length ? input[pos] : "EOF";
+
+		const errorMetadata = {
+			rule: "character_class",
+			start: start,
+			end: pos,
+			id: env.last_match_id++,
+			children: [],
+			error: {
+				type: "character_class_mismatch",
+				message: `Expected character ${charClass} at position ${start}, found '${foundChar}'`,
+			},
+		};
+		env.metadata_tree.push(errorMetadata);
+
 		if (env.trace) trace_chars_fail(exp, env);
 		return false;
 	}
@@ -426,16 +534,61 @@ function EXTN(exp, env) {
 			env.fault_rule = env.rule_names[env.depth];
 			env.fault_exp = `missing extension: ${exp[1]}`;
 		}
+
+		// Add error metadata for missing extension function
+		const errorMetadata = {
+			rule: "extension",
+			start: env.pos,
+			end: env.pos,
+			id: env.last_match_id++,
+			children: [],
+			error: {
+				type: "missing_extension",
+				message: `Missing extension function: ${key}`,
+			},
+		};
+		env.metadata_tree.push(errorMetadata);
+
 		return false;
 	}
 	try {
 		const result = fn(exp, env);
 		if (env.trace) trace_extn(exp, env, result);
 		if (result) return true; // allow any JS truthy return
+
+		// Add error metadata for extension function failure
+		const errorMetadata = {
+			rule: "extension",
+			start: env.pos,
+			end: env.pos,
+			id: env.last_match_id++,
+			children: [],
+			error: {
+				type: "extension_failed",
+				message: `Extension function ${key} failed to match`,
+			},
+		};
+		env.metadata_tree.push(errorMetadata);
+
 		return false;
 	} catch (err) {
 		// treat extn exceptions as panic failures
 		env.panic = err;
+
+		// Add error metadata for extension function exception
+		const errorMetadata = {
+			rule: "extension",
+			start: env.pos,
+			end: env.pos,
+			id: env.last_match_id++,
+			children: [],
+			error: {
+				type: "extension_exception",
+				message: `Extension function ${key} threw an exception: ${err}`,
+			},
+		};
+		env.metadata_tree.push(errorMetadata);
+
 		return false;
 	}
 }
@@ -1262,27 +1415,43 @@ function parse(codex, input, extend, options) {
 	const start = codex.start;
 	const result = start[0](start, env);
 
-	let err = 0;
+	/**
+	 * @type {import(".").Error} error
+	 */
+	let error;
 	if (env.tree.length !== 1) {
-		// TODO can this happen?
-		env.panic += "Bad ptree ...\n";
-		err = 1;
+		error = { type: "internal_error", message: "Bad ptree"}
 	} else if (env.panic) {
-		err = 1;
+		error = {type: "internal_panic", message: env.panic}
 	} else if (!result) {
-		err = 2;
+		error = { type: "parse_failed", message: "Failed to parse input"}
 	} else if (env.pos < input.length && !env.options.short) {
-		err = 3; // fell short..
+		error = { type: "incomplete_parse", message: `Parsed only ${env.pos} of ${input.length} characters`, location: line_number(env.input, env.pos)}
 	}
 
-	if (err > 0) {
+	if (error) {
+		// Create root error metadata if none exists
+		const errorMetadata = {
+			rule: "root",
+			start: 0,
+			end: env.peak,
+			id: env.last_match_id++,
+			children: [],
+			error,
+		};
+		env.metadata_tree[0].children.push(errorMetadata)
+
 		// returns env for show_err to sort out later
 		env.result = result;
+		/**
+		 * @type {import(".").ParseFailure}
+		 */
 		return {
 			ok: false,
 			env,
-			err,
 			show_err: () => err_report(env),
+			ptree_metadata: env.metadata_tree[0],
+			error
 		};
 	}
 
