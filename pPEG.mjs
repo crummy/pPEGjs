@@ -1437,7 +1437,7 @@ function parse(codex, input, extend, options) {
 		 */
 		const errorMetadata = {
 			rule: "root",
-			start: 0,
+			start: env.peak,
 			end: env.peak,
 			id: env.last_match_id++,
 			children: [],
