@@ -190,7 +190,7 @@ function test_file(file, json, silent = false) {
 
 		if (!pp.ok) {
 			// bad grammar
-			say(pp.show_err());
+			say(peg.show_err(pp.ptree_metadata));
 			say("********************* grammar failed, skip tests....");
 			peg_err += peg_not ? 0 : 1; // don't count if expected to fail
 			continue;
@@ -223,10 +223,10 @@ function test_file(file, json, silent = false) {
 			}
 			const tp = pp.parse(s);
 			if (tp.ok) {
-				say(tp.show_ptree(json));
+				say(peg.show_tree(tp.ptree));
 			} else {
 				// parse failed ...
-				say(tp.show_err());
+				say(peg.show_err(tp.ptree_metadata));
 			}
 			if ((tp.ok && !neg) || (!tp.ok && neg)) {
 				ok += 1;

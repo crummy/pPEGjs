@@ -84,18 +84,37 @@ const pPEG_codex = compiler(pPEG_rules);
 
 /**
  * Rule lookup - finds the appropriate rule for the given rule name and executes it
- * @param {[function, number, string]} exp The rule name to execute
- * @param {Env} env Environment configuration
+ * @param {import(".").CommandID} exp The rule name to execute
+ * @param {import(".").Env} env Environment configuration
  * @returns {boolean} True if the command was successfully parsed and executed
  */
 function ID(exp, env) {
-	const [, idx, name] = exp // [ID, idx, name]
+	const [, idx, name] = exp; // [ID, idx, name]
 	const start = env.pos;
 	const stack = env.tree.length;
+	const metadata_stack = env.metadata_tree.length;
 	const expr = env.code[idx];
 	if (env.panic || env.depth > env.max_depth) {
 		if (!env.panic)
 			env.panic = `max depth of recursion exceeded in rules:\n ... ${env.rule_names.slice(-6).join(" ")}\n`;
+
+		/**
+		 * @type {import(".").Metadata}
+		 */
+		const errorMetadata = {
+			rule: name,
+			rule_id: idx,
+			start: start,
+			end: env.pos,
+			id: env.last_match_id++,
+			children: [],
+			error: {
+				type: "max_depth_exceeded",
+				message: `Maximum recursion depth exceeded in rule: ${name}`,
+			},
+		};
+		env.metadata_tree.push(errorMetadata);
+
 		return false;
 	}
 	if (env.trace) trace_enter(name, env);
@@ -103,12 +122,35 @@ function ID(exp, env) {
 	env.rule_names[env.depth] = name;
 	env.start[env.depth] = start;
 	env.stack[env.depth] = stack;
+	env.metadata_stack[env.depth] = metadata_stack;
 	const result = expr[0](expr, env);
 	env.depth -= 1;
 	if (result === false) {
 		if (env.trace) trace_result(exp, env, false);
+
+		// Add error metadata if there isn't already metadata for this failure
+		if (env.metadata_tree.length === metadata_stack) {
+			/**
+			 * @type {import(".").Metadata}
+			 */
+			const errorMetadata = {
+				rule: name,
+				rule_id: idx,
+				start: start,
+				end: env.pos,
+				id: env.last_match_id++,
+				children: [],
+				error: {
+					type: "rule_match_failed",
+					message: `Failed to match rule: ${name}`,
+				},
+			};
+			env.metadata_tree.push(errorMetadata);
+		}
+
 		env.pos = start;
 		env.tree.length = stack;
+		env.metadata_tree.length = metadata_stack;
 		return false;
 	}
 	if (name[0] === "_") {
@@ -116,32 +158,51 @@ function ID(exp, env) {
 		if (env.tree.length > stack) {
 			// nested rule results...
 			env.tree = env.tree.slice(0, stack); // deleted
+			env.metadata_tree = env.metadata_tree.slice(0, metadata_stack); // deleted
 		}
 		if (env.trace) trace_result(exp, env, true, start);
 		return true;
 	}
-	if (env.tree.length - stack > 1 || name[0] <= "Z") { // if multiple results or first letter capital
+	/**
+	 * @type {import(".").Metadata}
+	 */
+	const metadata = {
+		rule: name,
+		rule_id: idx,
+		start: start,
+		end: env.pos,
+		id: env.last_match_id++,
+		children: [],
+	};
+	if (env.tree.length - stack > 1 || name[0] <= "Z") {
+		// if multiple results or first letter capital
 		const result = [name, env.tree.slice(stack)]; // stack..top
+		metadata.children = env.metadata_tree.slice(metadata_stack); // Add children directly
 		env.tree = env.tree.slice(0, stack); // delete stack..
+		env.metadata_tree = env.metadata_tree.slice(0, metadata_stack); // delete metadata_stack..
 		env.tree.push(result);
+		env.metadata_tree.push(metadata);
 		if (env.trace) trace_result(exp, env, result);
 		return true;
 	}
 	if (env.tree.length === stack) {
 		// terminal string value..
-		const result = [name, env.input.slice(start, env.pos)];
+		const value = env.input.slice(start, env.pos);
+		const result = [name, value];
+		metadata.match = value; // Store the match string directly in metadata
 		env.tree.push(result);
+		env.metadata_tree.push(metadata);
 		if (env.trace) trace_result(exp, env, result);
 		return true;
 	}
 	if (env.trace) trace_result(exp, env, env.tree[env.tree.length - 1]);
-	return true; //  elide this rule label
+	return true;
 } // ID
 
 /**
  *
- * @param {string|Command} exp
- * @param {Env} env
+ * @param {import(".").CommandALT} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  */
 function ALT(exp, env) {
@@ -149,6 +210,7 @@ function ALT(exp, env) {
 	if (env.trace) trace_rep(exp, env);
 	const start = env.pos;
 	const stack = env.tree.length;
+	const metadata_stack = env.metadata_tree.length;
 	const ch = env.input[start];
 	for (let i = 0; i < exp[1].length; i += 1) {
 		if (!env.trace && exp.length > 2) {
@@ -161,6 +223,9 @@ function ALT(exp, env) {
 		if (env.tree.length > stack) {
 			env.tree = env.tree.slice(0, stack);
 		}
+		if (env.metadata_tree.length > metadata_stack) {
+			env.metadata_tree = env.metadata_tree.slice(0, metadata_stack);
+		}
 		env.pos = start; // reset pos and try the next alt
 	}
 	return false;
@@ -168,8 +233,8 @@ function ALT(exp, env) {
 
 /**
  *
- * @param {string|Command} exp
- * @param {Env} env
+ * @param {import(".").CommandSEQ} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  */
 function SEQ(exp, env) {
@@ -182,6 +247,7 @@ function SEQ(exp, env) {
 		let i = 0;
 		let start = env.pos;
 		const stack = env.tree.length;
+		const metadata_stack = env.metadata_tree.length;
 		for (i = 0; i < args.length; i += 1) {
 			const arg = args[i];
 			const result = arg[0](arg, env);
@@ -191,13 +257,36 @@ function SEQ(exp, env) {
 					if (env.tree.length > stack) {
 						env.tree = env.tree.slice(0, stack);
 					}
+					if (env.metadata_tree.length > metadata_stack) {
+						env.metadata_tree = env.metadata_tree.slice(0, metadata_stack);
+					}
 					return true;
 				}
-				if (env.pos > start && env.pos > env.fault_pos) {
-					env.fault_pos = env.pos;
-					env.fault_tree = env.tree.slice(0);
-					env.fault_rule = env.rule_names[env.depth];
-					env.fault_exp = exp[3][i];
+				if (env.pos > start) {
+
+					// Add error metadata for this sequence element
+					/**
+					 * @type {import(".").Metadata}
+					 */
+					const errorMetadata = {
+						rule: env.rule_names[env.depth] || "sequence",
+						start: start,
+						end: env.pos,
+						id: env.last_match_id++,
+						children: env.metadata_tree.slice(metadata_stack),
+						error: {
+							type: "sequence_element_failed",
+							message: `Failed to match element ${i} in sequence rule: ${env.rule_names[env.depth]}`,
+						},
+					};
+
+					// Don't add if we already have an error at this level
+					if (
+						env.metadata_tree.length === metadata_stack ||
+						!env.metadata_tree[env.metadata_tree.length - 1].error
+					) {
+						env.metadata_tree.push(errorMetadata);
+					}
 				}
 				return false;
 			}
@@ -211,30 +300,65 @@ function SEQ(exp, env) {
 }
 
 /**
+ * Handles repetition patterns in parsing expressions (*, +, ?, or custom ranges)
  *
- * @param {string|Command} exp
- * @param {Env} env
- * @returns {boolean}
+ * @param {import(".").CommandREP} exp - The repetition expression [REP, min, max, expr]
+ * @param {import(".").Env} env - The parsing environment
+ * @returns {boolean} - True if the repetition pattern matched successfully (at least min times)
+ *
+ * The function attempts to match the expression repeatedly between min and max times:
+ * - min: minimum required matches (0 for * and ?, 1 for +)
+ * - max: maximum allowed matches (0 means unlimited for * and +)
+ * - Stops if: no progress made, max count reached, or expression fails to match
  */
 function REP(exp, env) {
 	// [REP, min, max, exp]
 	if (env.trace) trace_rep(exp, env);
 	const [_rep, min, max, expr] = exp;
 	const stack = env.tree.length;
+	const metadata_stack = env.metadata_tree.length;
 	let count = 0;
 	let pos = env.pos;
+
 	while (true) {
 		// min..max
 		const result = expr[0](expr, env);
 		if (result === false) break;
 		count += 1;
 		if (pos === env.pos) break; // no progress
-		if (count === max) break; // max 0 means any`
+		if (count === max) break; // max 0 means any
 		pos = env.pos;
 	}
+
 	if (count < min) {
+		/**
+		 * @type {import(".").Metadata} error
+		 */
+		const errorMetadata = {
+			rule: env.rule_names[env.depth] || "repetition",
+			start: pos,
+			end: env.pos,
+			id: env.last_match_id++,
+			children: env.metadata_tree.slice(metadata_stack),
+			error: {
+				type: "repetition_min_not_met",
+				message: `Expected at least ${min} repetitions, but got ${count}`,
+			},
+		};
+
+		// Don't duplicate error information
+		if (
+			env.metadata_tree.length === metadata_stack ||
+			!env.metadata_tree[env.metadata_tree.length - 1].error
+		) {
+			env.metadata_tree.push(errorMetadata);
+		}
+
 		if (env.tree.length > stack) {
 			env.tree = env.tree.slice(0, stack);
+		}
+		if (env.metadata_tree.length > metadata_stack) {
+			env.metadata_tree = env.metadata_tree.slice(0, metadata_stack);
 		}
 		return false;
 	}
@@ -242,16 +366,22 @@ function REP(exp, env) {
 }
 
 /**
+ * Handles prefix operators in parsing expressions
  *
- * @param {string|Command} exp
- * @param {Env} env
+ * @param {import(".").CommandPRE} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
+ *
+ * Supports three prefix operators:
+ * - `&` (and-predicate): Succeeds if term matches but doesn't consume input (default case)
+ * - `!` (not-predicate): Succeeds if term fails to match
+ * - `~` (not-consumed): Matches any single character except what term would match
  */
 function PRE(exp, env) {
-	// [PRE, sign, term]
 	const [_pre, sign, term] = exp;
 	const start = env.pos;
 	const stack = env.tree.length;
+	const metadata_stack = env.metadata_tree.length;
 	const trace = env.trace;
 	const peak = env.peak;
 	env.trace = false;
@@ -261,6 +391,9 @@ function PRE(exp, env) {
 	if (trace) trace_pre(exp, env, result);
 	if (env.tree.length > stack) {
 		env.tree = env.tree.slice(0, stack);
+	}
+	if (env.metadata_tree.length > metadata_stack) {
+		env.metadata_tree = env.metadata_tree.slice(0, metadata_stack);
 	}
 	env.pos = start;
 	if (sign === "~") {
@@ -274,25 +407,43 @@ function PRE(exp, env) {
 }
 
 /**
+ * Matches a string literal at the current position in the input.
+ * Handles single-quoted string literals from the grammar, with optional case-insensitivity.
  *
- * @param {string|Command} exp
- * @param {Env} env
+ * @param {import(".").CommandSQ} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  */
 function SQ(exp, env) {
-	// [SQ, icase, "..."]
 	const start = env.pos;
 	const input = env.input;
-	const icase = exp[1]; // case insensitive
-	const str = exp[2];
+	const [_, icase, str] = exp;
 	const len = str.length;
-	if (len === 0) return true; // '' empty str
+
+	// Empty string '' always matches
+	if (len === 0) return true;
+
 	let pos = env.pos;
 	for (let i = 0; i < len; i += 1) {
 		let char = input[pos]; // undefined if pos >= input.length
 		if (icase && pos < input.length) char = char.toUpperCase();
 		if (str[i] !== char) {
 			env.pos = start;
+
+			// Add error metadata for string match failure
+			const errorMetadata = {
+				rule: "string_literal",
+				start: start,
+				end: pos,
+				id: env.last_match_id++,
+				children: [],
+				error: {
+					type: "string_literal_mismatch",
+					message: `Expected '${str}' at position ${start}, found '${input.slice(start, start + 10)}...'`,
+				},
+			};
+			env.metadata_tree.push(errorMetadata);
+
 			if (env.trace) trace_chars_fail(exp, env);
 			return false;
 		}
@@ -306,8 +457,8 @@ function SQ(exp, env) {
 
 /**
  *
- * @param {string|Command} exp
- * @param {Env} env
+ * @param {import(".").CommandCHS} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  */
 function CHS(exp, env) {
@@ -340,6 +491,23 @@ function CHS(exp, env) {
 		if (count === max) break;
 	} // min..max loop
 	if (count < min) {
+		// Add error metadata for character class failure
+		const charClass = neg ? `not in [${str}]` : `in [${str}]`;
+		const foundChar = pos < input.length ? input[pos] : "EOF";
+
+		const errorMetadata = {
+			rule: "character_class",
+			start: start,
+			end: pos,
+			id: env.last_match_id++,
+			children: [],
+			error: {
+				type: "character_class_mismatch",
+				message: `Expected character ${charClass} at position ${start}, found '${foundChar}'`,
+			},
+		};
+		env.metadata_tree.push(errorMetadata);
+
 		if (env.trace) trace_chars_fail(exp, env);
 		return false;
 	}
@@ -351,8 +519,8 @@ function CHS(exp, env) {
 
 /**
  *
- * @param {string|Command} exp
- * @param {Env} env
+ * @param {import(".").CommandEXTN} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  */
 function EXTN(exp, env) {
@@ -366,22 +534,66 @@ function EXTN(exp, env) {
 	// key = sigil || key;
 	const fn = env.extend[key] || builtin(key);
 	if (!fn) {
-		if (env.pos > env.fault_pos) {
-			env.fault_pos = env.pos;
-			env.fault_tree = env.tree.slice(0);
-			env.fault_rule = env.rule_names[env.depth];
-			env.fault_exp = `missing extension: ${exp[1]}`;
-		}
+		/**
+		 * @type {import(".").Metadata}
+		 */
+		const errorMetadata = {
+			rule: "extension",
+			start: env.pos,
+			end: env.pos,
+			id: env.last_match_id++,
+			children: [],
+			error: {
+				type: "missing_extension",
+				message: `Missing extension function: ${key}`,
+			},
+		};
+		env.metadata_tree.push(errorMetadata);
+
 		return false;
 	}
 	try {
 		const result = fn(exp, env);
 		if (env.trace) trace_extn(exp, env, result);
 		if (result) return true; // allow any JS truthy return
+
+		/**
+		 * @type {import(".").Metadata}
+		 */
+		const errorMetadata = {
+			rule: "extension",
+			start: env.pos,
+			end: env.pos,
+			id: env.last_match_id++,
+			children: [],
+			error: {
+				type: "extension_failed",
+				message: `Extension function ${key} failed to match`,
+			},
+		};
+		env.metadata_tree.push(errorMetadata);
+
 		return false;
 	} catch (err) {
 		// treat extn exceptions as panic failures
 		env.panic = err;
+
+		/**
+		 * @type {import(".").Metadata}
+		 */
+		const errorMetadata = {
+			rule: "extension",
+			start: env.pos,
+			end: env.pos,
+			id: env.last_match_id++,
+			children: [],
+			error: {
+				type: "extension_exception",
+				message: `Extension function ${key} threw an exception: ${err}`,
+			},
+		};
+		env.metadata_tree.push(errorMetadata);
+
 		return false;
 	}
 }
@@ -422,10 +634,14 @@ function dump_trace(exp, env) {
 
 function infix(exp, env) {
 	const stack = env.stack[env.depth];
+	const metadata_stack = env.metadata_stack[env.depth];
 	if (env.tree.length - stack < 3) return true;
 	let next = stack - 1; // tree stack index
+	let metadata_next = metadata_stack - 1; // metadata tree stack index
 	env.tree[stack] = pratt(0);
 	env.tree.length = stack + 1;
+	env.metadata_tree[metadata_stack] = pratt_metadata(0);
+	env.metadata_tree.length = metadata_stack + 1;
 	return true;
 
 	function pratt(lbp) {
@@ -451,6 +667,38 @@ function infix(exp, env) {
 		}
 		return result;
 	}
+
+	function pratt_metadata(lbp) {
+		metadata_next += 1;
+		let result = env.metadata_tree[metadata_next];
+		while (true) {
+			metadata_next += 1;
+			const op = env.metadata_tree[metadata_next];
+			let rbp = op ? 0 : -1;
+			const sfx = op?.[0]?.rule ? op.rule.slice(-3) : undefined;
+			if (sfx && sfx[0] === "_") {
+				// _xL or _xR
+				const x = sfx.charCodeAt(1);
+				if (sfx[2] === "L") rbp = (x << 1) + 1;
+				if (sfx[2] === "R") rbp = (x + 1) << 1;
+			}
+			if (rbp < lbp) {
+				metadata_next -= 1; // restore op
+				break;
+			}
+			rbp = rbp % 2 === 0 ? rbp - 1 : rbp + 1;
+			// Create a new metadata object for the operation
+			const opMetadata = {
+				rule: op.rule,
+				start: op.start,
+				end: op.end,
+				id: op.id,
+				children: [result, pratt_metadata(rbp)],
+			};
+			result = opMetadata;
+		}
+		return result;
+	}
 }
 
 // <@name> -------------------------------------------------
@@ -470,7 +718,7 @@ function same_match(exp, env) {
 			break;
 		}
 	}
-	if (prior === "") return true; // '' empty match deafult (no prior value)
+	if (prior === "") return true; // '' empty match default (no prior value)
 	if (env.input.startsWith(prior, env.pos)) {
 		env.pos += prior.length;
 		return true;
@@ -488,7 +736,17 @@ function quote(exp, env) {
 	const marks = input.slice(start, sot);
 	const eot = input.indexOf(marks, sot);
 	if (eot === -1) return false;
-	env.tree.push(["quote", input.slice(sot, eot)]);
+	const content = input.slice(sot, eot);
+	env.tree.push(["quote", content]);
+	const metadata = {
+		rule: "quote",
+		start: sot,
+		end: eot,
+		id: env.last_match_id++,
+		match: content,
+		children: [],
+	};
+	env.metadata_tree.push(metadata);
 	env.pos = eot + marks.length;
 	if (env.peak < env.pos) env.peak = env.pos;
 	return true;
@@ -503,8 +761,17 @@ function quoter(exp, env) {
 	for (let i = sot - 1; i >= start; i -= 1) marks += input[i];
 	const eot = input.indexOf(marks, sot);
 	if (eot === -1) return false;
-	env.tree.push(["quoter", input.slice(sot, eot)]);
-	console.log(start, sot, eot, marks);
+	const content = input.slice(sot, eot);
+	env.tree.push(["quoter", content]);
+	const metadata = {
+		rule: "quoter",
+		start: sot,
+		end: eot,
+		id: env.last_match_id++,
+		match: content,
+		children: [],
+	};
+	env.metadata_tree.push(metadata);
 	env.pos = eot + marks.length;
 	if (env.peak < env.pos) env.peak = env.pos;
 	return true;
@@ -627,11 +894,10 @@ function line_label(n) {
 	return ln;
 }
 
-
 /**
  * Trace
- * @param {string|Command} exp
- * @param {Env} env
+ * @param {import(".").Exp} exp
+ * @param {import(".").Env} env
  * @returns {boolean}
  */
 function trace_trigger(exp, env) {
@@ -646,7 +912,7 @@ function trace_trigger(exp, env) {
 /**
  * Decides whether to print a trace report
  * @param {string} name
- * @param {Env} env
+ * @param {import(".").Env} env
  */
 function trace_enter(name, env) {
 	if (env.trace_depth === -1) {
@@ -719,7 +985,7 @@ function show_input(env, i, j) {
 
 /**
  *
- * @param {Env} env
+ * @param {import(".").Env} env
  * @returns {string}
  */
 function indent(env) {
@@ -731,8 +997,8 @@ function indent(env) {
 
 /**
  * exp decode display
- * @param {string|Command} exp
- * @returns {*|string} A string, or second arg if ID, or first arg if EXTN (what are those args?)
+ * @param {import(".").Command|string} exp
+ * @returns {string} Human readable expression
  */
 function exp_show(exp) {
 	if (typeof exp === "string") return exp;
@@ -741,7 +1007,6 @@ function exp_show(exp) {
 			return exp[2];
 		case SQ:
 			return `'${str_esc(exp[2])}'`;
-		// case DQ: return '"'+str_esc(exp[2])+'"';
 		case CHS: {
 			const [_, neg, min, max, str] = exp;
 			const sign = neg ? "~" : "";
@@ -767,6 +1032,7 @@ function exp_show(exp) {
 		case EXTN:
 			return exp[1];
 		default:
+			// TODO: when would this happen?
 			return "(...)";
 	}
 }
@@ -803,8 +1069,8 @@ function str_esc(s) {
 
 /**
  * The compiler turns ptree rules into instruction code
- * @param {Array} rules
- * @returns {Codex}
+ * @param {[string, ...any]} rules
+ * @returns {import(".").Codex}
  */
 function compiler(rules) {
 	const names = {};
@@ -823,13 +1089,17 @@ function compiler(rules) {
 	for (let i = 0; i < code.length; i += 1) {
 		optimize(code[i], code);
 	}
+
 	// let space, sp = names["_space_"];
 	// if (sp) space = code[sp];
 	return { rules, names, code, start };
 
 	/**
-	 * @param {Array} exp
-	 * @returns {[...Command]} Tuple containing the function to execute the rule, and arguments
+	 * Converts a parsed expression into a Command tuple for execution
+	 *
+	 * @param {[string, ...unknown]} exp The parsed expression array where the first element is the operation type
+	 *                             and subsequent elements are operation-specific arguments
+	 * @returns {Command} Tuple containing the function to execute the rule and its arguments
 	 */
 	function emit(exp) {
 		// ptree -> [Op, args..]
@@ -837,7 +1107,9 @@ function compiler(rules) {
 			case "id": {
 				const name = exp[1];
 				const index = names[name];
-				if (index === undefined) throw `Undefined rule: ${name}`;
+				if (index === undefined) {
+					throw `Undefined rule: ${name}`;
+				}
 				return [ID, index, name];
 			}
 			case "alt":
@@ -862,6 +1134,7 @@ function compiler(rules) {
 					}
 				}
 				if (expr[0] === SQ) {
+					// TODO icase is unused - bug?
 					const [_SQ, icase, str] = expr;
 					if (str.length === 1) {
 						return [CHS, false, min, max, str];
@@ -1021,7 +1294,7 @@ function escape_codes(str) {
 // -- pretty print ptree ----------------------------------------------
 
 /**
- * @param {Array} ptree
+ * @param {Exp[]} ptree
  * @param {boolean=false} json
  * @returns {string}
  */
@@ -1033,7 +1306,7 @@ function show_tree(ptree, json = false) {
 
 /**
  *
- * @param {Array} ptree
+ * @param {Exp[]} ptree
  * @param {number} inset
  * @param {number} last int bit map, 1 if after last kid
  * @returns {string}
@@ -1062,6 +1335,7 @@ function show_ptree(ptree, inset, last) {
 }
 
 /**
+ * TODO should this not just be replaced with JSON.stringify...
  * @param {Array} ptree
  * @param {string} inset
  * @returns {string}
@@ -1098,7 +1372,7 @@ function trace_report(report) {
  *
  * @param codex
  * @param {string} input
- * @returns Env
+ * @returns {import(".").Env}
  */
 const defaultEnv = (codex, input) => ({
 	codex, // {rules, names, code, start}
@@ -1112,12 +1386,10 @@ const defaultEnv = (codex, input) => ({
 	max_depth: 100,
 	rule_names: [], // dynamic stack
 	tree: [], // ptree construction
+	metadata_tree: [], // parallel ptree with metadata
+	last_match_id: 0,
 	// fault reporting .........
 	panic: "", // crash msg
-	fault_pos: -1,
-	fault_tree: [],
-	fault_rule: null,
-	fault_exp: null,
 	// trace reporting .......
 	trace: false, // rule name or true
 	trace_depth: -1, // active trace depth
@@ -1125,22 +1397,17 @@ const defaultEnv = (codex, input) => ({
 	// extensions ..........
 	start: [], // env.pos at start of rule
 	stack: [], // env.tree.length
+	metadata_stack: [], // env.metadata_tree.length
 	indent: [], // <indent>
 	result: true, // final parse result
 });
 
 /**
- * Extension functions
- * @typedef {Object<string, (any, Env) => unknown>} Extensions
- *
- */
-
-/**
- * @param {Codex} codex
+ * @param {import(".").Codex} codex
  * @param {string} input
- * @param {Extensions} extend
- * @param {Options} options
- * @return { ParseSuccess | ParseFailure }
+ * @param {import(".").Extensions} extend
+ * @param {import(".").Options} options
+ * @return {import(".").ParseSuccess | import(".").ParseFailure}
  */
 function parse(codex, input, extend, options) {
 	const env = defaultEnv(codex, input);
@@ -1152,181 +1419,139 @@ function parse(codex, input, extend, options) {
 	const start = codex.start;
 	const result = start[0](start, env);
 
-	let err = 0;
-	if (env.tree.length !== 1) {
-		// TODO can this happen?
-		env.panic += "Bad ptree ...\n";
-		err = 1;
-	} else if (env.panic) {
-		err = 1;
+	/**
+	 * @type {import(".").Error} error
+	 */
+	let error;
+	if (env.panic) {
+		error = {type: "internal_panic", message: env.panic}
+	} else if (env.tree.length !== 1) {
+		error = { type: "internal_error", message: "Bad ptree"}
 	} else if (!result) {
-		err = 2;
+		error = { type: "parse_failed", message: "Failed to parse input"}
 	} else if (env.pos < input.length && !env.options.short) {
-		err = 3; // fell short..
+		error = { type: "incomplete_parse", message: `Parsed only ${env.pos} of ${input.length} characters`, location: line_number(env.input, env.pos)}
 	}
 
-	if (err > 0) {
+	if (error) {
+		/**
+		 * @type {import(".").Metadata}
+		 */
+		const errorMetadata = {
+			rule: "root",
+			start: env.peak,
+			end: env.peak,
+			id: env.last_match_id++,
+			children: [],
+			error,
+		};
+		// Push on the end, or create tree if it's empty
+		// A little awkward, maybe metadata_tree should not be an array?
+		if (env.metadata_tree[0]) {
+			env.metadata_tree[0].children.push(errorMetadata)
+		} else {
+			env.metadata_tree.push(errorMetadata)
+		}
+
 		// returns env for show_err to sort out later
 		env.result = result;
+		/**
+		 * @type {import(".").ParseFailure}
+		 */
 		return {
 			ok: false,
 			env,
-			err,
-			show_err: () => err_report(env),
+			rules: env.codex.rules.map(([_, [name]]) => name),
+			ptree_metadata: env.metadata_tree[0],
 		};
 	}
 
+	/**
+	 * @type {import(".").ParseSuccess}
+	 */
 	return {
 		ok: true,
+		rules: env.codex.rules.map(([_, [[_2, name]]]) => name),
 		ptree: env.tree[0],
-		show_ptree: (json = false) => show_tree(env.tree[0], json),
+		ptree_metadata: env.metadata_tree[0],
 	};
-}
-
-/**
- *
- * @param {Env} env
- * @returns {string}
- */
-function err_report(env) {
-	let report = env.panic;
-	for (let i = 0; i < env.fault_tree.length; i += 1) {
-		report += show_tree(env.fault_tree[i]);
-		report += "\n";
-	}
-	if (env.result && env.pos < env.input.length) {
-		const line = line_number(env.input, env.pos);
-		report += `Fell short at line: ${line}\n`;
-	} else {
-		report += "Failed ";
-		if (env.fault_pos > -1) {
-			report += `in rule: ${env.fault_rule}, expected: ${exp_show(env.fault_exp)}, `;
-		}
-		const line = line_number(env.input, env.peak);
-		report += `at line: ${line}\n`;
-	}
-	report += line_report(env.input, env.peak);
-	return report;
 }
 
 /**
  *
  * @param {string} grammar A grammar, e.g. "number = digit+\ndigit = [0-9]"
- * @param {Object?} extend
- * @param {Object?} options
- * @returns {(CompileSuccess|CompileFailure)} A compiled parser object, or an object describing the failure to parse
+ * @param {import(".").Extensions?} extend
+ * @param {import(".").Options?} options
+ * @returns {import(".").CompileResult} A compiled parser object, or an object describing the failure to parse
  */
 function compile(grammar, extend, options) {
 	const peg = parse(pPEG_codex, grammar, {}, options);
 	if (!peg.ok) {
+		if (!peg.ptree_metadata.error) {
+			peg.ptree_metadata.error = {
+				type: "grammar_error",
+				message: peg.env.panic
+			}
+		}
+		/**
+		 * @type {import(".").CompileFailure}
+		 */
 		return {
-			show_err: peg.show_err,
 			env: peg.env,
-			err: peg.err,
 			ok: false,
-			panic: `grammar error\n${peg.panic}`,
-			parse: () => peg,
+			ptree_metadata: peg.ptree_metadata
 		};
 	}
 	try {
 		peg.codex = compiler(peg.ptree[1]);
 	} catch (err) {
+		if (!peg.ptree_metadata.error) {
+			peg.ptree_metadata.error = {
+				type: "uncaught_error",
+				message: err
+			}
+		}
+		/**
+		 * @type {import(".").CompileFailure}
+		 */
 		return {
-			err: 1,
 			ok: false,
-			parse: () => peg,
-			show_err: () => `grammar compile error\n${err}`,
+			env: peg.env,
+			ptree_metadata: peg.ptree_metadata
 		};
 	}
 	return {
-		show_ptree: peg.show_ptree,
 		ok: true,
 		parse: (input, options) => parse(peg.codex, input, extend, options),
 	};
 }
 
-const peg = { compile, show_tree };
+/**
+ *
+ * @param {import(".").Metadata} metadata
+ */
+function show_err(metadata) {
+	/**
+	 * @type {string[]}
+	 */
+	const errors = []
+
+	/**
+	 * @param {import(".").Metadata} metadata
+	 */
+	function addErrors(metadata) {
+		if (metadata.error) {
+			errors.push(`${metadata.error.type}: ${metadata.error.message}`)
+		}
+		metadata.children.map(addErrors)
+	}
+	addErrors(metadata)
+	if (errors.length === 0) {
+		return "No errors."
+	}
+	return `Encountered ${errors.length} errors: ${errors}`
+}
+
+const peg = { compile, show_tree, show_err };
 
 export default peg;
-
-/**
- * @typedef {Object} Codex
- * @property {Object} names
- * @property {Array} code
- * @property {((function(*, *): (boolean))|*|number)[]} start
- * @property rules
- */
-
-/**
- * @typedef {Object} ParseSuccess
- * @property {true} ok
- * @property {(boolean?: false) => string} show_ptree
- * @property {Array} ptree
- */
-
-/**
- * @typedef {Object} ParseFailure
- * @property {false} ok
- * @property {() => string} show_err
- * @property {number} err
- * @property {Env} env
- */
-
-/**
- * @typedef {Object} Options
- * @property {boolean?} trace
- * @property {boolean?} short
- */
-
-/**
- * Environment configuration object
- * @typedef {Object} Env
- * @property {boolean | string} trace
- * @property {Options} options
- * @property {string} panic
- * @property {Array} fault_tree
- * @property {boolean} result
- * @property {number} pos
- * @property {string} input
- * @property {number} fault_pos
- * @property {string | null} fault_rule
- * @property {string | null} fault_exp
- * @property {number} peak
- * @property {number} trace_depth
- * @property {Array} tree
- * @property {Array<Command>} code
- * @property {number} depth
- * @property {number} max_depth
- * @property {Array} rule_names // array of strings..?
- * @property {Array} start // array of what?
- * @property {Array} stack // array of what?
- * @property {Extensions} extend
- * @property {Options} options
- */
-
-/**
- * @typedef {ParseSuccess} CompileSuccess
- * @property {(input: string, options?: any) => any} parse
- */
-
-/**
- * @typedef {ParseFailure} CompileFailure
- * @param {string} panic
- * @property {(input: string, options?: any) => any} parse
- */
-
-/**
- * A parsed grammar command
- * @typedef {Array} Command
- * @param {(start: Function, env: Env) => boolean} 0 Function to call to execute the rule
- * @param {...(number | string)} 1 Arguments to the rule
- */
-
-/**
- * Instruction code
- * @typedef {Object} Codex
- * @param {[Command]} start
- * @param {Array} rules
- * @param code
- * @param name
- */
