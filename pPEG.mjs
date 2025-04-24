@@ -331,7 +331,9 @@ function REP(exp, env) {
 	}
 
 	if (count < min) {
-		// Add error metadata for repetition failure
+		/**
+		 * @type {import(".").Metadata} error
+		 */
 		const errorMetadata = {
 			rule: env.rule_names[env.depth] || "repetition",
 			start: pos,
@@ -1459,6 +1461,7 @@ function parse(codex, input, extend, options) {
 		return {
 			ok: false,
 			env,
+			rules: env.codex.rules.map(([_, [name]]) => name),
 			ptree_metadata: env.metadata_tree[0],
 		};
 	}
@@ -1468,6 +1471,7 @@ function parse(codex, input, extend, options) {
 	 */
 	return {
 		ok: true,
+		rules: env.codex.rules.map(([_, [[_2, name]]]) => name),
 		ptree: env.tree[0],
 		ptree_metadata: env.metadata_tree[0],
 	};
@@ -1508,7 +1512,7 @@ function compile(grammar, extend, options) {
 			}
 		}
 		/**
-		 * @type {import(".").CompileError}
+		 * @type {import(".").CompileFailure}
 		 */
 		return {
 			ok: false,

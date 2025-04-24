@@ -62,6 +62,7 @@ export interface ParseSuccess {
     ptree: Exp[];
     /** Metadata tree with position information */
     ptree_metadata: Metadata;
+    rules: string[];
 }
 
 /**
@@ -74,6 +75,7 @@ export interface ParseFailure {
     env: Env;
     /** Metadata tree with position information */
     ptree_metadata: Metadata;
+    rules: string[];
 }
 
 export type ParseResult = ParseSuccess | ParseFailure;
