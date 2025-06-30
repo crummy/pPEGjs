@@ -1702,12 +1702,18 @@ function compile(grammar, extend = {}, options = {}) {
 		};
 	}
 	try {
-		peg.codex = compiler(peg.ptree[1]);
+		peg.codex = compiler(peg.ptree[1], grammar);
 	} catch (err) {
 		if (!peg.ptree_metadata.error) {
-			peg.ptree_metadata.error = {
-				type: "uncaught_error",
-				message: err
+			// Check if err is already an error object with the expected structure
+			// TODO: It would be great if this was attached to closer to the failure site, rather than the root
+			if (typeof err === 'object' && err !== null && 'type' in err) {
+				peg.ptree_metadata.error = err;
+			} else {
+				peg.ptree_metadata.error = {
+					type: "uncaught_error",
+					message: String(err)
+				}
 			}
 		}
 		/**

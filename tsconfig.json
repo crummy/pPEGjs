@@ -1,0 +1,11 @@
+{
+    "compilerOptions": {
+      "allowJs": true,
+      "checkJs": true,
+      "declaration": true,
+      "emitDeclarationOnly": true,
+      "lib": ["ES2022", 'dom'],
+      "target": "ES2022"
+    },
+    "include": ["pPEG.mjs", "index.d.ts"]
+  }
