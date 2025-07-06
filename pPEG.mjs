@@ -109,6 +109,10 @@
  * @property {number[]} metadata_stack
  * @property {string[]} indent
  * @property {boolean} result
+ * @property {number} fault_pos
+ * @property {Exp[]} fault_tree
+ * @property {string} fault_rule
+ * @property {Command} fault_exp
  */
 
 /**
@@ -319,6 +323,14 @@ function ID(exp, env) {
 			env.metadata_tree.push(errorMetadata);
 		}
 
+		// Track fault information for better error reporting
+		if (env.pos > env.fault_pos) {
+			env.fault_pos = env.pos;
+			env.fault_tree = env.tree.slice();
+			env.fault_rule = name;
+			env.fault_exp = exp;
+		}
+		
 		env.pos = start;
 		env.tree.length = stack;
 		env.metadata_tree.length = metadata_stack;
@@ -407,6 +419,14 @@ function ALT(exp, env) {
 		env.pos = start; // reset pos and try the next alt
 	}
 	if (!anyMatched) {
+		// Track fault information for better error reporting
+		if (env.pos > env.fault_pos) {
+			env.fault_pos = env.pos;
+			env.fault_tree = env.tree.slice();
+			env.fault_rule = env.rule_names[env.depth];
+			env.fault_exp = exp;
+		}
+		
 		const { row: line, col: column } = line_info(env.input, start);
 		/** @type {Metadata} */
 		const errorMetadata = {
@@ -626,6 +646,15 @@ function SQ(exp, env) {
 		if (icase && pos < input.length) char = char.toUpperCase();
 		if (str[i] !== char) {
 			env.pos = start;
+			
+			// Track fault information for better error reporting
+			if (env.pos > env.fault_pos) {
+				env.fault_pos = env.pos;
+				env.fault_tree = env.tree.slice();
+				env.fault_rule = env.rule_names[env.depth];
+				env.fault_exp = exp;
+			}
+			
 			const { row: line, col: column } = line_info(input, start);
 			const errorMetadata = {
 				rule: "string_literal",
@@ -691,6 +720,14 @@ function CHS(exp, env) {
 		if (count === max) break;
 	}
 	if (count < min) {
+		// Track fault information for better error reporting
+		if (env.pos > env.fault_pos) {
+			env.fault_pos = env.pos;
+			env.fault_tree = env.tree.slice();
+			env.fault_rule = env.rule_names[env.depth];
+			env.fault_exp = exp;
+		}
+		
 		const charClass = neg ? `not in [${str}]` : `in [${str}]`;
 		const foundChar = pos < input.length ? input[pos] : "EOF";
 		const { row: line, col: column } = line_info(input, start);
@@ -1602,6 +1639,11 @@ const defaultEnv = (codex, input) => ({
 	last_match_id: 0,
 	// fault reporting .........
 	panic: "", // crash msg
+	// fault tracking for better error reporting
+	fault_pos: -1,
+	fault_tree: [],
+	fault_rule: null,
+	fault_exp: null,
 	// trace reporting .......
 	trace: false, // rule name or true
 	trace_depth: -1, // active trace depth
@@ -1634,8 +1676,36 @@ function parse(codex, input, extend = {}, options = {}) {
 		const { row: line, col: column } = line_info(env.input, env.pos);
 		error = {type: "internal_panic",  message: env.panic, line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)}
 	} else if (env.tree.length !== 1) {
-		const { row: line, col: column } = line_info(env.input, env.pos);
-		error = { type: "internal_error",  message: "Bad ptree", line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)}
+		// Use fault information if available for better error reporting
+		if (env.fault_pos > -1 && env.fault_rule && env.fault_exp) {
+			const { row: line, col: column } = line_info(env.input, env.fault_pos);
+			let expected;
+			try {
+				expected = exp_show(env.fault_exp);
+			} catch (e) {
+				expected = env.fault_rule;
+			}
+			let message = `Bad ptree ...\n`;
+			// Add fault tree information
+			for (let i = 0; i < env.fault_tree.length; i++) {
+				message += `${show_tree(env.fault_tree[i])}\n`;
+			}
+			message += `Failed in rule: ${env.fault_rule}, expected: ${expected}, at line: ${line_number(env.input, env.fault_pos)}`;
+			error = { 
+				type: "parse_failed", 
+				message,
+				line, 
+				column, 
+				fault_rule: env.fault_rule,
+				input_snippet: line_report(env.input, env.fault_pos),
+				expected,
+				found: env.input.slice(env.fault_pos, env.fault_pos + 10),
+				location: line_number(env.input, env.fault_pos)
+			};
+		} else {
+			const { row: line, col: column } = line_info(env.input, env.pos);
+			error = { type: "internal_error",  message: "Bad ptree", line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)};
+		}
 	} else if (!result) {
 		const { row: line, col: column } = line_info(env.input, env.pos);
 		error = { type: "parse_failed",  message: "Failed to parse input", line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)}
