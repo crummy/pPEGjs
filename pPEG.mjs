@@ -9,24 +9,9 @@
 */
 
 /**
- * @typedef {object} Metadata
- * @property {string} rule - The rule name that matched
- * @property {number} [rule_id] - The index of the rule in the grammar
- * @property {number} start - Start position in the input string
- * @property {number} end - End position in the input string
- * @property {number} id - Unique identifier for this match
- * @property {string} [match] - The matched text (for terminal nodes)
- * @property {Array<Metadata>} children - Child nodes in the parse tree
- * @property {Error} [error] - Error information if parsing failed at this node
- */
-
-/**
- * @typedef {object} Match
- * @property {string} rule
- * @property {number} rule_id
- * @property {number} start
- * @property {number} end
- * @property {number} id
+ * @typedef {number[]} TraceHistory
+ * Flat array of trace records: [ruleId, depth, start, end, ...]
+ * ruleId < 0 indicates a failure (rule index encoded as -(idx+1)).
  */
 
 /**
@@ -51,8 +36,7 @@
 /**
  * @typedef {object} ParseSuccess
  * @property {true} ok - Indicates parsing was successful
- * @property {Exp[]} ptree - The parse tree
- * @property {Metadata} ptree_metadata - Metadata tree with position information
+ * @property {Exp} ptree - The parse tree
  * @property {string[]} rules
  */
 
@@ -60,8 +44,9 @@
  * @typedef {object} ParseFailure
  * @property {false} ok - Indicates parsing failed
  * @property {Env} env - Internal environment state
- * @property {Metadata} ptree_metadata - Metadata tree with position information
  * @property {string[]} rules
+ * @property {TraceHistory} trace_history
+ * @property {Error} error
  */
 
 /** @typedef {ParseSuccess | ParseFailure} ParseResult */
@@ -76,7 +61,9 @@
  * @typedef {object} CompileFailure
  * @property {false} ok
  * @property {Env} env
- * @property {Metadata} ptree_metadata
+ * @property {TraceHistory} trace_history
+ * @property {Error} error
+ * @property {string[]} rules
  */
 
 /** @typedef {CompileSuccess | CompileFailure} CompileResult */
@@ -97,20 +84,14 @@
  * @property {number} depth
  * @property {number} max_depth
  * @property {string[]} rule_names
- * @property {Exp[]} tree
- * @property {Metadata[]} metadata_tree
- * @property {Match[]} matches
- * @property {number} last_match_id
  * @property {string} panic
  * @property {boolean|string} trace
  * @property {number} trace_depth
  * @property {number[]} start
- * @property {number[]} stack
- * @property {number[]} metadata_stack
+ * @property {TraceHistory} trace_history
  * @property {string[]} indent
  * @property {boolean} result
  * @property {number} fault_pos
- * @property {Exp[]} fault_tree
  * @property {string} fault_rule
  * @property {Command} fault_exp
  */
@@ -259,128 +240,41 @@ const pPEG_codex = compiler(pPEG_rules);
 function ID(exp, env) {
 	const [, idx, name] = exp; // [ID, idx, name]
 	const start = env.pos;
-	const stack = env.tree.length;
-	const metadata_stack = env.metadata_tree.length;
+	const depth = env.depth;
+	const trace_index = env.trace_history.length;
+	env.trace_history.push(idx, depth, start, 0);
 	const expr = env.code[idx];
 	if (env.panic || env.depth > env.max_depth) {
 		if (!env.panic)
 			env.panic = `max depth of recursion exceeded in rules:\n ... ${env.rule_names.slice(-6).join(" ")}\n`;
-
-		const { row: line, col: column } = line_info(env.input, start);
-		const errorMetadata = {
-			rule: name,
-			rule_id: idx,
-			start: start,
-			end: env.pos,
-			id: env.last_match_id++,
-			children: [],
-			error: {
-				type: "max_depth_exceeded",
-				message: `Maximum recursion depth exceeded in rule: ${name}`,
-				line,
-				column,
-				input_snippet: env.input.slice(Math.max(0, start-5), start+10),
-				suggestion: "Check for left recursion or infinite loops in your grammar.",
-				expected: name,
-				found: env.input.slice(start, start+10),
-			},
-		};
-		env.metadata_tree.push(errorMetadata);
-
+		// negative idx means failure. idx + 1 to avoid re-using 0
+		env.trace_history[trace_index] = -(idx + 1);
+		env.trace_history[trace_index + 3] = env.pos;
 		return false;
 	}
 	if (env.trace) trace_enter(name, env);
 	env.depth += 1;
 	env.rule_names[env.depth] = name;
 	env.start[env.depth] = start;
-	env.stack[env.depth] = stack;
-	env.metadata_stack[env.depth] = metadata_stack;
 	const result = expr[0](expr, env);
 	env.depth -= 1;
 	if (result === false) {
 		if (env.trace) trace_result(exp, env, false);
 
-		if (env.metadata_tree.length === metadata_stack) {
-			const { row: line, col: column } = line_info(env.input, start);
-			const errorMetadata = {
-				rule: name,
-				rule_id: idx,
-				start: start,
-				end: env.pos,
-				id: env.last_match_id++,
-				children: [],
-				error: {
-					type: "rule_match_failed",
-					message: `Failed to match rule: ${name} at line ${line}, column ${column}`,
-					line,
-					column,
-					input_snippet: env.input.slice(Math.max(0, start-5), start+10),
-					suggestion: `Check the definition of rule '${name}' and the input at this position.`,
-					expected: name,
-					found: env.input.slice(start, start+10),
-				},
-			};
-			env.metadata_tree.push(errorMetadata);
-		}
-
 		// Track fault information for better error reporting
 		if (env.pos > env.fault_pos) {
 			env.fault_pos = env.pos;
-			env.fault_tree = env.tree.slice();
 			env.fault_rule = name;
 			env.fault_exp = exp;
 		}
-		
+		// idx + 1 to avoid re-using 0
+		env.trace_history[trace_index] = -(idx + 1);
+		env.trace_history[trace_index + 3] = env.pos;
 		env.pos = start;
-		env.tree.length = stack;
-		env.metadata_tree.length = metadata_stack;
 		return false;
 	}
-	if (name[0] === "_") {
-		// no results required..
-		if (env.tree.length > stack) {
-			// nested rule results...
-			env.tree = env.tree.slice(0, stack); // deleted
-			env.metadata_tree = env.metadata_tree.slice(0, metadata_stack); // deleted
-		}
-		if (env.trace) trace_result(exp, env, true, start);
-		return true;
-	}
-	/**
-	 * @type {Metadata}
-	 */
-	const metadata = {
-		rule: name,
-		rule_id: idx,
-		start: start,
-		end: env.pos,
-		id: env.last_match_id++,
-		children: [],
-	};
-	if (env.tree.length - stack > 1 || name[0] <= "Z") {
-		// if multiple results or first letter capital
-		/** @type {Exp} */ // typecheck fails - should this be [name, ...env.tree.slice(stack)] ?
-		const result = [name, env.tree.slice(stack)]; // stack..top
-		metadata.children = env.metadata_tree.slice(metadata_stack); // Add children directly
-		env.tree = env.tree.slice(0, stack); // delete stack..
-		env.metadata_tree = env.metadata_tree.slice(0, metadata_stack); // delete metadata_stack..
-		env.tree.push(result);
-		env.metadata_tree.push(metadata);
-		if (env.trace) trace_result(exp, env, result);
-		return true;
-	}
-	if (env.tree.length === stack) {
-		// terminal string value..
-		const value = env.input.slice(start, env.pos);
-		/** @type {Exp} */
-		const result = [name, value];
-		metadata.match = value; // Store the match string directly in metadata
-		env.tree.push(result);
-		env.metadata_tree.push(metadata);
-		if (env.trace) trace_result(exp, env, result);
-		return true;
-	}
-	if (env.trace) trace_result(exp, env, env.tree[env.tree.length - 1]);
+	env.trace_history[trace_index + 3] = env.pos;
+	if (env.trace) trace_result(exp, env, true, start);
 	return true;
 } // ID
 
@@ -393,11 +287,8 @@ function ID(exp, env) {
 function ALT(exp, env) {
 	if (env.trace) trace_rep(exp, env);
 	const start = env.pos;
-	const stack = env.tree.length;
-	const metadata_stack = env.metadata_tree.length;
 	const ch = env.input[start];
 	let anyMatched = false;
-	let lastError = null;
 	for (let i = 0; i < exp[1].length; i += 1) {
 		if (!env.trace && exp.length > 2) {
 			const x = exp[2][i]; // guard ch
@@ -409,44 +300,15 @@ function ALT(exp, env) {
 			anyMatched = true;
 			break;
 		}
-		if (env.tree.length > stack) {
-			env.tree = env.tree.slice(0, stack);
-		}
-		if (env.metadata_tree.length > metadata_stack) {
-			lastError = env.metadata_tree[env.metadata_tree.length - 1];
-			env.metadata_tree = env.metadata_tree.slice(0, metadata_stack);
-		}
 		env.pos = start; // reset pos and try the next alt
 	}
 	if (!anyMatched) {
 		// Track fault information for better error reporting
 		if (env.pos > env.fault_pos) {
 			env.fault_pos = env.pos;
-			env.fault_tree = env.tree.slice();
 			env.fault_rule = env.rule_names[env.depth];
 			env.fault_exp = exp;
 		}
-		
-		const { row: line, col: column } = line_info(env.input, start);
-		/** @type {Metadata} */
-		const errorMetadata = {
-			rule: env.rule_names[env.depth] || "alternation",
-			start: start,
-			end: env.pos,
-			id: env.last_match_id++,
-			children: lastError ? [lastError] : [],
-			error: {
-				type: "alternation_failed",
-				message: `No alternatives matched at line ${line}, column ${column}`,
-				line,
-				column,
-				input_snippet: env.input.slice(Math.max(0, start-5), start+10),
-				suggestion: "Check if your input matches any of the expected alternatives.",
-				expected: exp[1].map(exp_show),
-				found: env.input.slice(start, start+10),
-			},
-		};
-		env.metadata_tree.push(errorMetadata);
 	}
 	return anyMatched;
 } // ALT
@@ -464,47 +326,13 @@ function SEQ(exp, env) {
 	while (true) {
 		let i = 0;
 		let start = env.pos;
-		const stack = env.tree.length;
-		const metadata_stack = env.metadata_tree.length;
 		for (i = 0; i < args.length; i += 1) {
 			const arg = args[i];
 			const result = arg[0](arg, env);
 			if (result === false) {
 				if (count >= min) {
 					env.pos = start;
-					if (env.tree.length > stack) {
-						env.tree = env.tree.slice(0, stack);
-					}
-					if (env.metadata_tree.length > metadata_stack) {
-						env.metadata_tree = env.metadata_tree.slice(0, metadata_stack);
-					}
 					return true;
-				}
-				if (env.pos > start) {
-					const { row: line, col: column } = line_info(env.input, start);
-					const errorMetadata = {
-						rule: env.rule_names[env.depth] || "sequence",
-						start: start,
-						end: env.pos,
-						id: env.last_match_id++,
-						children: env.metadata_tree.slice(metadata_stack),
-						error: {
-							type: "sequence_element_failed",
-							message: `Failed to match element ${i} in sequence rule: ${env.rule_names[env.depth]} at line ${line}, column ${column}`,
-							line,
-							column,
-							input_snippet: env.input.slice(Math.max(0, start-5), start+10),
-							suggestion: `Check the ${i+1}th element of the sequence in rule '${env.rule_names[env.depth]}' and the input at this position.`,
-							expected: exp_show(arg),
-							found: env.input.slice(start, start+10),
-						},
-					};
-					if (
-						env.metadata_tree.length === metadata_stack ||
-						!env.metadata_tree[env.metadata_tree.length - 1].error
-					) {
-						env.metadata_tree.push(errorMetadata);
-					}
 				}
 				return false;
 			}
@@ -532,8 +360,6 @@ function SEQ(exp, env) {
 function REP(exp, env) {
 	if (env.trace) trace_rep(exp, env);
 	const [_rep, min, max, expr] = exp;
-	const stack = env.tree.length;
-	const metadata_stack = env.metadata_tree.length;
 	let count = 0;
 	let pos = env.pos;
 
@@ -547,37 +373,6 @@ function REP(exp, env) {
 	}
 
 	if (count < min) {
-		const { row: line, col: column } = line_info(env.input, pos);
-		const errorMetadata = {
-			rule: env.rule_names[env.depth] || "repetition",
-			start: pos,
-			end: env.pos,
-			id: env.last_match_id++,
-			children: env.metadata_tree.slice(metadata_stack),
-			error: {
-				type: "repetition_min_not_met",
-				message: `Expected at least ${min} repetitions, but got ${count} at line ${line}, column ${column}`,
-				line,
-				column,
-				input_snippet: env.input.slice(Math.max(0, pos-5), pos+10),
-				suggestion: `Check if the input has enough repetitions for the rule '${env.rule_names[env.depth]}' at this position.`,
-				expected: `at least ${min} repetitions`,
-				found: count,
-			},
-		};
-		if (
-			env.metadata_tree.length === metadata_stack ||
-			!env.metadata_tree[env.metadata_tree.length - 1].error
-		) {
-			env.metadata_tree.push(errorMetadata);
-		}
-
-		if (env.tree.length > stack) {
-			env.tree = env.tree.slice(0, stack);
-		}
-		if (env.metadata_tree.length > metadata_stack) {
-			env.metadata_tree = env.metadata_tree.slice(0, metadata_stack);
-		}
 		return false;
 	}
 	return true;
@@ -598,8 +393,6 @@ function REP(exp, env) {
 function PRE(exp, env) {
 	const [_pre, sign, term] = exp;
 	const start = env.pos;
-	const stack = env.tree.length;
-	const metadata_stack = env.metadata_tree.length;
 	const trace = env.trace;
 	const peak = env.peak;
 	env.trace = false;
@@ -607,12 +400,6 @@ function PRE(exp, env) {
 	env.peak = peak;
 	env.trace = trace;
 	if (trace) trace_pre(exp, env, result);
-	if (env.tree.length > stack) {
-		env.tree = env.tree.slice(0, stack);
-	}
-	if (env.metadata_tree.length > metadata_stack) {
-		env.metadata_tree = env.metadata_tree.slice(0, metadata_stack);
-	}
 	env.pos = start;
 	if (sign === "~") {
 		if (result === true || env.pos >= env.input.length) return false;
@@ -650,30 +437,9 @@ function SQ(exp, env) {
 			// Track fault information for better error reporting
 			if (env.pos > env.fault_pos) {
 				env.fault_pos = env.pos;
-				env.fault_tree = env.tree.slice();
 				env.fault_rule = env.rule_names[env.depth];
 				env.fault_exp = exp;
 			}
-			
-			const { row: line, col: column } = line_info(input, start);
-			const errorMetadata = {
-				rule: "string_literal",
-				start: start,
-				end: pos,
-				id: env.last_match_id++,
-				children: [],
-				error: {
-					type: "string_literal_mismatch",
-					message: `Expected '${str}' at line ${line}, column ${column}, found '${input.slice(start, start + 10)}...'`,
-					line,
-					column,
-					input_snippet: input.slice(Math.max(0, start-5), start+10),
-					suggestion: "Check for missing or incorrect quotes.",
-					expected: str,
-					found: input.slice(start, start+10),
-				},
-			};
-			env.metadata_tree.push(errorMetadata);
 
 			if (env.trace) trace_chars_fail(exp, env);
 			return false;
@@ -723,32 +489,9 @@ function CHS(exp, env) {
 		// Track fault information for better error reporting
 		if (env.pos > env.fault_pos) {
 			env.fault_pos = env.pos;
-			env.fault_tree = env.tree.slice();
 			env.fault_rule = env.rule_names[env.depth];
 			env.fault_exp = exp;
 		}
-		
-		const charClass = neg ? `not in [${str}]` : `in [${str}]`;
-		const foundChar = pos < input.length ? input[pos] : "EOF";
-		const { row: line, col: column } = line_info(input, start);
-		const errorMetadata = {
-			rule: "character_class",
-			start: start,
-			end: pos,
-			id: env.last_match_id++,
-			children: [],
-			error: {
-				type: "character_class_mismatch",
-				message: `Expected character ${charClass} at line ${line}, column ${column}, found '${foundChar}'`,
-				line,
-				column,
-				input_snippet: input.slice(Math.max(0, start-5), start+10),
-				suggestion: "Check character class or input character.",
-				expected: charClass,
-				found: foundChar,
-			},
-		};
-		env.metadata_tree.push(errorMetadata);
 
 		if (env.trace) trace_chars_fail(exp, env);
 		return false;
@@ -770,76 +513,16 @@ function EXTN(exp, env) {
 	const key = ext[0];
 	const fn = env.extend[key] || builtin(key);
 	if (!fn) {
-		const { row: line, col: column } = line_info(env.input, env.pos);
-		const errorMetadata = {
-			rule: "extension",
-			start: env.pos,
-			end: env.pos,
-			id: env.last_match_id++,
-			children: [],
-			error: {
-				type: "missing_extension",
-				message: `Missing extension function: ${key} at line ${line}, column ${column}`,
-				line,
-				column,
-				input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10),
-				suggestion: `Define the extension function '${key}' or check for typos.`,
-				expected: key,
-				found: null,
-			},
-		};
-		env.metadata_tree.push(errorMetadata);
-
+		env.panic = `Missing extension function: ${key}`;
 		return false;
 	}
 	try {
 		const result = fn(exp, env);
 		if (env.trace) trace_extn(exp, env, result);
 		if (result) return true;
-
-		const { row: line, col: column } = line_info(env.input, env.pos);
-		const errorMetadata = {
-			rule: "extension",
-			start: env.pos,
-			end: env.pos,
-			id: env.last_match_id++,
-			children: [],
-			error: {
-				type: "extension_failed",
-				message: `Extension function ${key} failed to match at line ${line}, column ${column}`,
-				line,
-				column,
-				input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10),
-				suggestion: `Check the implementation of extension function '${key}'.`,
-				expected: key,
-				found: null,
-			},
-		};
-		env.metadata_tree.push(errorMetadata);
-
 		return false;
 	} catch (err) {
 		env.panic = err;
-		const { row: line, col: column } = line_info(env.input, env.pos);
-		const errorMetadata = {
-			rule: "extension",
-			start: env.pos,
-			end: env.pos,
-			id: env.last_match_id++,
-			children: [],
-			error: {
-				type: "extension_exception",
-				message: `Extension function ${key} threw an exception: ${err} at line ${line}, column ${column}`,
-				line,
-				column,
-				input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10),
-				suggestion: `Check the implementation and usage of extension function '${key}'.`,
-				expected: key,
-				found: null,
-			},
-		};
-		env.metadata_tree.push(errorMetadata);
-
 		return false;
 	}
 }
@@ -867,9 +550,17 @@ function builtin(key) {
 
 function dump_trace(exp, env) {
 	let report = `<?> at line: ${line_number(env.input, env.pos)}\n`;
-	for (let i = 0; i < env.tree.length; i += 1) {
-		const tree = show_tree(env.tree[i]);
-		report += `${tree}\n`;
+	const rules = env.codex.rules.map(([_, [[_2, name]]]) => name);
+	for (let i = 0; i < env.trace_history.length; i += 4) {
+		const ruleId = env.trace_history[i];
+		const depth = env.trace_history[i + 1];
+		const start = env.trace_history[i + 2];
+		const end = env.trace_history[i + 3];
+		const fail = ruleId < 0;
+		const idx = fail ? -ruleId - 1 : ruleId;
+		const name = rules[idx] ?? "?";
+		const flag = fail ? "!" : " ";
+		report += `${"  ".repeat(depth)}${flag}${name} [${start}, ${end}]\n`;
 	}
 	report += line_report(env.input, env.pos);
 	console.log(report);
@@ -879,72 +570,9 @@ function dump_trace(exp, env) {
 // <infix> -------------------------------------------------
 
 function infix(exp, env) {
-	const stack = env.stack[env.depth];
-	const metadata_stack = env.metadata_stack[env.depth];
-	if (env.tree.length - stack < 3) return true;
-	let next = stack - 1; // tree stack index
-	let metadata_next = metadata_stack - 1; // metadata tree stack index
-	env.tree[stack] = pratt(0);
-	env.tree.length = stack + 1;
-	env.metadata_tree[metadata_stack] = pratt_metadata(0);
-	env.metadata_tree.length = metadata_stack + 1;
+	// Trace-only parsing doesn't build intermediate trees.
+	// Keep <infix> as a no-op for now.
 	return true;
-
-	function pratt(lbp) {
-		next += 1;
-		let result = env.tree[next];
-		while (true) {
-			next += 1;
-			const op = env.tree[next];
-			let rbp = op ? 0 : -1;
-			const sfx = op ? op[0].slice(-3) : undefined;
-			if (sfx && sfx[0] === "_") {
-				// _xL or _xR
-				const x = sfx.charCodeAt(1);
-				if (sfx[2] === "L") rbp = (x << 1) + 1;
-				if (sfx[2] === "R") rbp = (x + 1) << 1;
-			}
-			if (rbp < lbp) {
-				next -= 1; // restore op
-				break;
-			}
-			rbp = rbp % 2 === 0 ? rbp - 1 : rbp + 1;
-			result = [op[1], [result, pratt(rbp)]];
-		}
-		return result;
-	}
-
-	function pratt_metadata(lbp) {
-		metadata_next += 1;
-		let result = env.metadata_tree[metadata_next];
-		while (true) {
-			metadata_next += 1;
-			const op = env.metadata_tree[metadata_next];
-			let rbp = op ? 0 : -1;
-			const sfx = op?.[0]?.rule ? op.rule.slice(-3) : undefined;
-			if (sfx && sfx[0] === "_") {
-				// _xL or _xR
-				const x = sfx.charCodeAt(1);
-				if (sfx[2] === "L") rbp = (x << 1) + 1;
-				if (sfx[2] === "R") rbp = (x + 1) << 1;
-			}
-			if (rbp < lbp) {
-				metadata_next -= 1; // restore op
-				break;
-			}
-			rbp = rbp % 2 === 0 ? rbp - 1 : rbp + 1;
-			// Create a new metadata object for the operation
-			const opMetadata = {
-				rule: op.rule,
-				start: op.start,
-				end: op.end,
-				id: op.id,
-				children: [result, pratt_metadata(rbp)],
-			};
-			result = opMetadata;
-		}
-		return result;
-	}
 }
 
 // <@name> -------------------------------------------------
@@ -958,12 +586,14 @@ function same_match(exp, env) {
 	const { row, col } = line_info(env.input, env.pos);
 	if (!code) throw `${exp[1]} undefined rule: ${name} at line ${row}, column ${col}`;
 	let prior = ""; // previous name rule result
-	for (let i = env.tree.length - 1; i >= 0; i -= 1) {
-		const [rule, value] = env.tree[i];
-		if (rule === name) {
-			prior = value;
-			break;
-		}
+	for (let i = env.trace_history.length - 4; i >= 0; i -= 4) {
+		const ruleId = env.trace_history[i];
+		if (ruleId < 0) continue;
+		if (ruleId !== idx) continue;
+		const start = env.trace_history[i + 2];
+		const end = env.trace_history[i + 3];
+		prior = env.input.slice(start, end);
+		break;
 	}
 	if (prior === "") return true; // '' empty match default (no prior value)
 	if (env.input.startsWith(prior, env.pos)) {
@@ -983,17 +613,6 @@ function quote(exp, env) {
 	const marks = input.slice(start, sot);
 	const eot = input.indexOf(marks, sot);
 	if (eot === -1) return false;
-	const content = input.slice(sot, eot);
-	env.tree.push(["quote", content]);
-	const metadata = {
-		rule: "quote",
-		start: sot,
-		end: eot,
-		id: env.last_match_id++,
-		match: content,
-		children: [],
-	};
-	env.metadata_tree.push(metadata);
 	env.pos = eot + marks.length;
 	if (env.peak < env.pos) env.peak = env.pos;
 	return true;
@@ -1008,17 +627,6 @@ function quoter(exp, env) {
 	for (let i = sot - 1; i >= start; i -= 1) marks += input[i];
 	const eot = input.indexOf(marks, sot);
 	if (eot === -1) return false;
-	const content = input.slice(sot, eot);
-	env.tree.push(["quoter", content]);
-	const metadata = {
-		rule: "quoter",
-		start: sot,
-		end: eot,
-		id: env.last_match_id++,
-		match: content,
-		children: [],
-	};
-	env.metadata_tree.push(metadata);
 	env.pos = eot + marks.length;
 	if (env.peak < env.pos) env.peak = env.pos;
 	return true;
@@ -1610,6 +1218,67 @@ function show_json(ptree, inset = "") {
 // ----------------------------------------------------------------------
 
 /**
+ * Translate trace history into a ptree (nested arrays).
+ * @param {TraceHistory} trace
+ * @param {string[]} rules
+ * @param {string} input
+ * @returns {Exp|null}
+ */
+function trace_to_ptree(trace, rules, input) {
+	let root = null;
+	const stack = [];
+	let skip_depth = null;
+	for (let i = 0; i < trace.length; i += 4) {
+		const ruleId = trace[i];
+		const depth = trace[i + 1];
+		const start = trace[i + 2];
+		const end = trace[i + 3];
+		if (skip_depth !== null) {
+			if (depth > skip_depth) continue;
+			skip_depth = null;
+		}
+		const failed = ruleId < 0;
+		const idx = failed ? -ruleId - 1 : ruleId;
+		const name = rules[idx];
+		if (failed || (name && name[0] === "_")) {
+			skip_depth = depth;
+			continue;
+		}
+		const node = { name, depth, start, end, children: [] };
+		while (stack.length > 0 && depth <= stack[stack.length - 1].depth) {
+			stack.pop();
+		}
+		if (stack.length > 0) {
+			stack[stack.length - 1].children.push(node);
+		} else {
+			root = node;
+		}
+		stack.push(node);
+	}
+	if (!root) return null;
+	return collapse_ptree(root, input);
+}
+
+/**
+ * @param {{name: string, start: number, end: number, children: any[]}} node
+ * @param {string} input
+ * @returns {Exp}
+ */
+function collapse_ptree(node, input) {
+	const kids = node.children
+		.map((child) => collapse_ptree(child, input))
+		.filter(Boolean);
+	const name = node.name;
+	if (kids.length === 0) {
+		return [name, input.slice(node.start, node.end)];
+	}
+	if (kids.length === 1 && name[0] > "Z") {
+		return kids[0];
+	}
+	return [name, kids];
+}
+
+/**
  * @param {string} report
  */
 function trace_report(report) {
@@ -1633,15 +1302,11 @@ const defaultEnv = (codex, input) => ({
 	depth: 0, // rule recursion
 	max_depth: 100,
 	rule_names: [], // dynamic stack
-	tree: [], // ptree construction
-	metadata_tree: [], // parallel ptree with metadata
-	matches: [], 
-	last_match_id: 0,
+	trace_history: [], // trace history (flat array)
 	// fault reporting .........
 	panic: "", // crash msg
 	// fault tracking for better error reporting
 	fault_pos: -1,
-	fault_tree: [],
 	fault_rule: null,
 	fault_exp: null,
 	// trace reporting .......
@@ -1650,8 +1315,6 @@ const defaultEnv = (codex, input) => ({
 	// trace_log: [], // trace report
 	// extensions ..........
 	start: [], // env.pos at start of rule
-	stack: [], // env.tree.length
-	metadata_stack: [], // env.metadata_tree.length
 	indent: [], // <indent>
 	result: true, // final parse result
 });
@@ -1670,12 +1333,14 @@ function parse(codex, input, extend = {}, options = {}) {
 	if (options.trace) env.trace = options.trace;
 	const start = codex.start;
 	const result = start[0](start, env);
+	const rules = env.codex.rules.map(([_, [[_2, name]]]) => name);
+	const ptree = result ? trace_to_ptree(env.trace_history, rules, env.input) : null;
 
 	let error;
 	if (env.panic) {
 		const { row: line, col: column } = line_info(env.input, env.pos);
 		error = {type: "internal_panic",  message: env.panic, line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)}
-	} else if (env.tree.length !== 1) {
+	} else if (!result) {
 		// Use fault information if available for better error reporting
 		if (env.fault_pos > -1 && env.fault_rule && env.fault_exp) {
 			const { row: line, col: column } = line_info(env.input, env.fault_pos);
@@ -1685,12 +1350,7 @@ function parse(codex, input, extend = {}, options = {}) {
 			} catch (e) {
 				expected = env.fault_rule;
 			}
-			let message = `Bad ptree ...\n`;
-			// Add fault tree information
-			for (let i = 0; i < env.fault_tree.length; i++) {
-				message += `${show_tree(env.fault_tree[i])}\n`;
-			}
-			message += `Failed in rule: ${env.fault_rule}, expected: ${expected}, at line: ${line_number(env.input, env.fault_pos)}`;
+			const message = `Failed in rule: ${env.fault_rule}, expected: ${expected}, at line: ${line_number(env.input, env.fault_pos)}`;
 			error = { 
 				type: "parse_failed", 
 				message,
@@ -1704,45 +1364,31 @@ function parse(codex, input, extend = {}, options = {}) {
 			};
 		} else {
 			const { row: line, col: column } = line_info(env.input, env.pos);
-			error = { type: "internal_error",  message: "Bad ptree", line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)};
+			error = { type: "parse_failed",  message: "Failed to parse input", line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)}
 		}
-	} else if (!result) {
-		const { row: line, col: column } = line_info(env.input, env.pos);
-		error = { type: "parse_failed",  message: "Failed to parse input", line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)}
 	} else if (env.pos < input.length && !env.options.short) {
 		const { row: line, col: column } = line_info(env.input, env.pos);
 		error = { type: "incomplete_parse",  message: `Parsed only ${env.pos} of ${input.length} characters`, location: line_number(env.input, env.pos), line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)}
+	} else if (!ptree) {
+		const { row: line, col: column } = line_info(env.input, env.pos);
+		error = { type: "internal_error",  message: "Empty parse tree", line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)};
 	}
 
 	if (error) {
-		const errorMetadata = {
-			rule: "root",
-			start: env.peak,
-			end: env.peak,
-			id: env.last_match_id++,
-			children: [],
-			error,
-		};
-		if (env.metadata_tree[0]) {
-			env.metadata_tree[0].children.push(errorMetadata)
-		} else {
-			env.metadata_tree.push(errorMetadata)
-		}
-
 		env.result = result;
 		return {
 			ok: false,
 			env,
-			rules: env.codex.rules.map(([_, [name]]) => name),
-			ptree_metadata: env.metadata_tree[0],
+			rules,
+			trace_history: env.trace_history,
+			error,
 		};
 	}
 
 	return {
 		ok: true,
-		rules: env.codex.rules.map(([_, [[_2, name]]]) => name),
-		ptree: env.tree[0],
-		ptree_metadata: env.metadata_tree[0],
+		rules,
+		ptree,
 	};
 }
 
@@ -1756,43 +1402,32 @@ function parse(codex, input, extend = {}, options = {}) {
 function compile(grammar, extend = {}, options = {}) {
 	const peg = parse(pPEG_codex, grammar, {}, options);
 	if (!peg.ok) {
-		if (!peg.ptree_metadata.error) {
-			peg.ptree_metadata.error = {
-				type: "grammar_error",
-				message: peg.env.panic
-			}
-		}
 		/**
 		 * @type {CompileFailure}
 		 */
 		return {
+			rules: peg.rules,
 			env: peg.env,
 			ok: false,
-			ptree_metadata: peg.ptree_metadata
+			trace_history: peg.trace_history,
+			error: peg.error
 		};
 	}
 	try {
 		peg.codex = compiler(peg.ptree[1], grammar);
 	} catch (err) {
-		if (!peg.ptree_metadata.error) {
-			// Check if err is already an error object with the expected structure
-			// TODO: It would be great if this was attached to closer to the failure site, rather than the root
-			if (typeof err === 'object' && err !== null && 'type' in err) {
-				peg.ptree_metadata.error = err;
-			} else {
-				peg.ptree_metadata.error = {
-					type: "uncaught_error",
-					message: String(err)
-				}
-			}
-		}
+		const error =
+			typeof err === "object" && err !== null && "type" in err
+				? err
+				: { type: "uncaught_error", message: String(err) };
 		/**
 		 * @type {CompileFailure}
 		 */
 		return {
 			ok: false,
 			env: peg.env,
-			ptree_metadata: peg.ptree_metadata
+			trace_history: peg.trace_history ?? [],
+			error
 		};
 	}
 	return {
@@ -1802,29 +1437,17 @@ function compile(grammar, extend = {}, options = {}) {
 }
 
 /**
- *
- * @param {Metadata} metadata
+ * @param {Error|ParseFailure|null|undefined} err
+ * @returns {string}
  */
-function show_err(metadata) {
-	/**
-	 * @type {string[]}
-	 */
-	const errors = []
-
-	/**
-	 * @param {Metadata} metadata
-	 */
-	function addErrors(metadata) {
-		if (metadata.error) {
-			errors.push(`${metadata.error.type}: ${metadata.error.message}`)
-		}
-		metadata.children.map(addErrors)
+function show_err(err) {
+	if (!err) return "No errors.";
+	const error = err.error ? err.error : err;
+	if (typeof error === "string") return error;
+	if (error && typeof error === "object" && "type" in error && "message" in error) {
+		return `${error.type}: ${error.message}`;
 	}
-	addErrors(metadata)
-	if (errors.length === 0) {
-		return "No errors."
-	}
-	return `Encountered ${errors.length} errors: ${errors}`
+	return "No errors.";
 }
 
 const peg = { compile, show_tree, show_err };
