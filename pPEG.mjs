@@ -31,6 +31,7 @@
  * @property {*} [found]
  * @property {string} [suggestion]
  * @property {string} [location]
+ * @property {string} [rule]
  */
 
 /**
@@ -938,8 +939,10 @@ function compiler(rules) {
 	}
 	const start = [ID, 0, first]; // start rule
 	const code = [];
+	let active_rule = "";
 	for (const rule of rules) {
 		const [_rule, [[_id, name], exp]] = rule;
+		active_rule = name;
 		code.push(emit(exp));
 	}
 	for (let i = 0; i < code.length; i += 1) {
@@ -964,7 +967,11 @@ function compiler(rules) {
 				const name = exp[1];
 				const index = names[name];
 				if (index === undefined) {
-					throw `Undefined rule: ${name}`;
+					throw {
+						type: "undefined_rule",
+						message: `Undefined rule: ${name}`,
+						rule: active_rule,
+					};
 				}
 				return [ID, index, name];
 			}
@@ -1414,7 +1421,7 @@ function compile(grammar, extend = {}, options = {}) {
 		};
 	}
 	try {
-		peg.codex = compiler(peg.ptree[1], grammar);
+		peg.codex = compiler(peg.ptree[1]);
 	} catch (err) {
 		const error =
 			typeof err === "object" && err !== null && "type" in err
