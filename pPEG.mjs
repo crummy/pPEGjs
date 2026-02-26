@@ -155,7 +155,6 @@
  * @typedef {Array<Rule>} Rules
  */
 
-
 const pPEG_grammar = `
     Peg   = _ rule+
     rule  = id _ '=' _ alt
@@ -435,7 +434,7 @@ function SQ(exp, env) {
 		if (icase && pos < input.length) char = char.toUpperCase();
 		if (str[i] !== char) {
 			env.pos = start;
-			
+
 			// Track fault information for better error reporting
 			if (env.pos > env.fault_pos) {
 				env.fault_pos = env.pos;
@@ -586,7 +585,8 @@ function same_match(exp, env) {
 	const idx = env.codex.names[name];
 	const code = env.code[idx];
 	const { row, col } = line_info(env.input, env.pos);
-	if (!code) throw `${exp[1]} undefined rule: ${name} at line ${row}, column ${col}`;
+	if (!code)
+		throw `${exp[1]} undefined rule: ${name} at line ${row}, column ${col}`;
 	let prior = ""; // previous name rule result
 	for (let i = env.trace_history.length - 4; i >= 0; i -= 4) {
 		const ruleId = env.trace_history[i];
@@ -1342,12 +1342,20 @@ function parse(codex, input, extend = {}, options = {}) {
 	const start = codex.start;
 	const result = start[0](start, env);
 	const rules = env.codex.rules.map(([_, [[_2, name]]]) => name);
-	const ptree = result ? trace_to_ptree(env.trace_history, rules, env.input) : null;
+	const ptree = result
+		? trace_to_ptree(env.trace_history, rules, env.input)
+		: null;
 
 	let error;
 	if (env.panic) {
 		const { row: line, col: column } = line_info(env.input, env.pos);
-		error = {type: "internal_panic",  message: env.panic, line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)}
+		error = {
+			type: "internal_panic",
+			message: env.panic,
+			line,
+			column,
+			input_snippet: env.input.slice(Math.max(0, env.pos - 5), env.pos + 10),
+		};
 	} else if (!result) {
 		// Use fault information if available for better error reporting
 		if (env.fault_pos > -1 && env.fault_rule && env.fault_exp) {
@@ -1359,27 +1367,46 @@ function parse(codex, input, extend = {}, options = {}) {
 				expected = env.fault_rule;
 			}
 			const message = `Failed in rule: ${env.fault_rule}, expected: ${expected}, at line: ${line_number(env.input, env.fault_pos)}`;
-			error = { 
-				type: "parse_failed", 
+			error = {
+				type: "parse_failed",
 				message,
-				line, 
-				column, 
+				line,
+				column,
 				fault_rule: env.fault_rule,
 				input_snippet: line_report(env.input, env.fault_pos),
 				expected,
 				found: env.input.slice(env.fault_pos, env.fault_pos + 10),
-				location: line_number(env.input, env.fault_pos)
+				location: line_number(env.input, env.fault_pos),
 			};
 		} else {
 			const { row: line, col: column } = line_info(env.input, env.pos);
-			error = { type: "parse_failed",  message: "Failed to parse input", line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)}
+			error = {
+				type: "parse_failed",
+				message: "Failed to parse input",
+				line,
+				column,
+				input_snippet: env.input.slice(Math.max(0, env.pos - 5), env.pos + 10),
+			};
 		}
 	} else if (env.pos < input.length && !env.options.short) {
 		const { row: line, col: column } = line_info(env.input, env.pos);
-		error = { type: "incomplete_parse",  message: `Parsed only ${env.pos} of ${input.length} characters`, location: line_number(env.input, env.pos), line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)}
+		error = {
+			type: "incomplete_parse",
+			message: `Parsed only ${env.pos} of ${input.length} characters`,
+			location: line_number(env.input, env.pos),
+			line,
+			column,
+			input_snippet: env.input.slice(Math.max(0, env.pos - 5), env.pos + 10),
+		};
 	} else if (!ptree) {
 		const { row: line, col: column } = line_info(env.input, env.pos);
-		error = { type: "internal_error",  message: "Empty parse tree", line, column, input_snippet: env.input.slice(Math.max(0, env.pos-5), env.pos+10)};
+		error = {
+			type: "internal_error",
+			message: "Empty parse tree",
+			line,
+			column,
+			input_snippet: env.input.slice(Math.max(0, env.pos - 5), env.pos + 10),
+		};
 	}
 
 	if (error) {
@@ -1398,7 +1425,7 @@ function parse(codex, input, extend = {}, options = {}) {
 		ok: true,
 		rules,
 		ptree,
-		trace_history: env.trace_history
+		trace_history: env.trace_history,
 	};
 }
 
@@ -1420,7 +1447,7 @@ function compile(grammar, extend = {}, options = {}) {
 			env: peg.env,
 			ok: false,
 			trace_history: peg.trace_history,
-			error: peg.error
+			error: peg.error,
 		};
 	}
 	try {
@@ -1437,7 +1464,7 @@ function compile(grammar, extend = {}, options = {}) {
 			ok: false,
 			env: peg.env,
 			trace_history: peg.trace_history ?? [],
-			error
+			error,
 		};
 	}
 	return {
@@ -1454,7 +1481,12 @@ function show_err(err) {
 	if (!err) return "No errors.";
 	const error = err.error ? err.error : err;
 	if (typeof error === "string") return error;
-	if (error && typeof error === "object" && "type" in error && "message" in error) {
+	if (
+		error &&
+		typeof error === "object" &&
+		"type" in error &&
+		"message" in error
+	) {
 		return `${error.type}: ${error.message}`;
 	}
 	return "No errors.";
