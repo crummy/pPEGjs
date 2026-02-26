@@ -38,6 +38,7 @@
  * @typedef {object} ParseSuccess
  * @property {true} ok - Indicates parsing was successful
  * @property {Exp} ptree - The parse tree
+ * @property {TraceHistory} trace_history
  * @property {string[]} rules
  */
 
@@ -1388,6 +1389,7 @@ function parse(codex, input, extend = {}, options = {}) {
 			env,
 			rules,
 			trace_history: env.trace_history,
+			ptree,
 			error,
 		};
 	}
@@ -1396,6 +1398,7 @@ function parse(codex, input, extend = {}, options = {}) {
 		ok: true,
 		rules,
 		ptree,
+		trace_history: env.trace_history
 	};
 }
 
