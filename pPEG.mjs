@@ -183,50 +183,50 @@ const pPEG_grammar = `
 // biome-ignore format:
 /** @type {Rules} */
 const pPEG_rules =
-[["rule",[["id","Peg"],
-    ["seq",[["id","_"],["rep",[["id","rule"],["sfx","+"]]],["id","_"]]]]],
-["rule",[["id","rule"],
-    ["seq",[["id","id"],["id","_"],["sq","'='"],["id","_"],["id","alt"]]]]],
-["rule",[["id","alt"],
-    ["seq",[["id","seq"],["rep",[["seq",[["sq","'/'"],["id","_"],["id","seq"]]],["sfx","*"]]]]]]],
-["rule",[["id","seq"],
-    ["rep",[["id","rep"],["sfx","+"]]]]],
-["rule",[["id","rep"],
-    ["seq",[["id","pre"],["rep",[["id","sfx"],["sfx","?"]]],["id","_"]]]]],
-["rule",[["id","pre"],
-    ["seq",[["rep",[["id","pfx"],["sfx","?"]]],["id","term"]]]]],
-["rule",[["id","term"],
-    ["alt",[["id","call"],["id","sq"],["id","chs"],["id","group"],["id","extn"]]]]],
-["rule",[["id","id"],
-    ["seq",[["chs","[a-zA-Z_]"],
-        ["rep",[["chs","[a-zA-Z0-9_]"],["sfx","*"]]]]]]],
-["rule",[["id","pfx"],
-    ["chs","[&!~]"]]],
-["rule",[["id","sfx"],
-    ["alt",[["chs","[+?]"],["seq",[["sq","'*'"],["rep",[["id","range"],["sfx","?"]]]]]]]]],
-["rule",[["id","range"],
-    ["seq",[["id","num"],["rep",[["seq",[["id","dots"],["rep",[["id","num"],["sfx","?"]]]]],
-        ["sfx","?"]]]]]]],
-["rule",[["id","num"],
-    ["rep",[["chs","[0-9]"],["sfx","+"]]]]],
-["rule",[["id","dots"],
-    ["sq","'..'"]]],
-["rule",[["id","call"],
-    ["seq",[["id","id"],["id","_"],["pre",[["pfx","!"],["sq","'='"]]]]]]],
-["rule",[["id","sq"],
-    ["seq",[["chs","[']"],["rep",[["pre",[["pfx","~"],["chs","[']"]]],
-        ["sfx","*"]]],["chs","[']"],["rep",[["sq","'i'"],["sfx","?"]]]]]]],
-["rule",[["id","chs"],
-    ["seq",[["sq","'['"],["rep",[["pre",[["pfx","~"],["sq","']'"]]],
-        ["sfx","*"]]],["sq","']'"]]]]],
-["rule",[["id","group"],
-    ["seq",[["sq","'('"],["id","_"],["id","alt"],["sq","')'"]]]]],
-["rule",[["id","extn"],
-    ["seq",[["sq","'<'"],["rep",[["pre",[["pfx","~"],["sq","'>'"]]],
-        ["sfx","*"]]],["sq","'>'"]]]]],
-["rule",[["id","_"],
-    ["rep",[["alt",[["seq",[["sq","'#'"],["rep",[["pre",[["pfx","~"],["chs","[\n\r]"]]],
-        ["sfx","*"]]]]],["rep",[["chs","[ \t\n\r]"],["sfx","*"]]]]],["sfx","*"]]]]]];
+    [["rule", [["id", "Peg"],
+        ["seq", [["id", "_"], ["rep", [["id", "rule"], ["sfx", "+"]]], ["id", "_"]]]]],
+        ["rule", [["id", "rule"],
+            ["seq", [["id", "id"], ["id", "_"], ["sq", "'='"], ["id", "_"], ["id", "alt"]]]]],
+        ["rule", [["id", "alt"],
+            ["seq", [["id", "seq"], ["rep", [["seq", [["sq", "'/'"], ["id", "_"], ["id", "seq"]]], ["sfx", "*"]]]]]]],
+        ["rule", [["id", "seq"],
+            ["rep", [["id", "rep"], ["sfx", "+"]]]]],
+        ["rule", [["id", "rep"],
+            ["seq", [["id", "pre"], ["rep", [["id", "sfx"], ["sfx", "?"]]], ["id", "_"]]]]],
+        ["rule", [["id", "pre"],
+            ["seq", [["rep", [["id", "pfx"], ["sfx", "?"]]], ["id", "term"]]]]],
+        ["rule", [["id", "term"],
+            ["alt", [["id", "call"], ["id", "sq"], ["id", "chs"], ["id", "group"], ["id", "extn"]]]]],
+        ["rule", [["id", "id"],
+            ["seq", [["chs", "[a-zA-Z_]"],
+                ["rep", [["chs", "[a-zA-Z0-9_]"], ["sfx", "*"]]]]]]],
+        ["rule", [["id", "pfx"],
+            ["chs", "[&!~]"]]],
+        ["rule", [["id", "sfx"],
+            ["alt", [["chs", "[+?]"], ["seq", [["sq", "'*'"], ["rep", [["id", "range"], ["sfx", "?"]]]]]]]]],
+        ["rule", [["id", "range"],
+            ["seq", [["id", "num"], ["rep", [["seq", [["id", "dots"], ["rep", [["id", "num"], ["sfx", "?"]]]]],
+                ["sfx", "?"]]]]]]],
+        ["rule", [["id", "num"],
+            ["rep", [["chs", "[0-9]"], ["sfx", "+"]]]]],
+        ["rule", [["id", "dots"],
+            ["sq", "'..'"]]],
+        ["rule", [["id", "call"],
+            ["seq", [["id", "id"], ["id", "_"], ["pre", [["pfx", "!"], ["sq", "'='"]]]]]]],
+        ["rule", [["id", "sq"],
+            ["seq", [["chs", "[']"], ["rep", [["pre", [["pfx", "~"], ["chs", "[']"]]],
+                ["sfx", "*"]]], ["chs", "[']"], ["rep", [["sq", "'i'"], ["sfx", "?"]]]]]]],
+        ["rule", [["id", "chs"],
+            ["seq", [["sq", "'['"], ["rep", [["pre", [["pfx", "~"], ["sq", "']'"]]],
+                ["sfx", "*"]]], ["sq", "']'"]]]]],
+        ["rule", [["id", "group"],
+            ["seq", [["sq", "'('"], ["id", "_"], ["id", "alt"], ["sq", "')'"]]]]],
+        ["rule", [["id", "extn"],
+            ["seq", [["sq", "'<'"], ["rep", [["pre", [["pfx", "~"], ["sq", "'>'"]]],
+                ["sfx", "*"]]], ["sq", "'>'"]]]]],
+        ["rule", [["id", "_"],
+            ["rep", [["alt", [["seq", [["sq", "'#'"], ["rep", [["pre", [["pfx", "~"], ["chs", "[\n\r]"]]],
+                ["sfx", "*"]]]]], ["rep", [["chs", "[ \t\n\r]"], ["sfx", "*"]]]]], ["sfx", "*"]]]]]];
 
 const pPEG_codex = compiler(pPEG_rules);
 
@@ -1230,9 +1230,10 @@ function show_json(ptree, inset = "") {
  * @param {TraceHistory} trace
  * @param {string[]} rules
  * @param {string} input
+ * @param {boolean} [include_failed=false]
  * @returns {Exp|null}
  */
-function trace_to_ptree(trace, rules, input) {
+function trace_to_ptree(trace, rules, input, include_failed = false) {
 	let root = null;
 	const stack = [];
 	let skip_depth = null;
@@ -1248,7 +1249,7 @@ function trace_to_ptree(trace, rules, input) {
 		const failed = ruleId < 0;
 		const idx = failed ? -ruleId - 1 : ruleId;
 		const name = rules[idx];
-		if (failed || (name && name[0] === "_")) {
+		if ((failed && !include_failed) || (name && name[0] === "_")) {
 			skip_depth = depth;
 			continue;
 		}
@@ -1342,9 +1343,7 @@ function parse(codex, input, extend = {}, options = {}) {
 	const start = codex.start;
 	const result = start[0](start, env);
 	const rules = env.codex.rules.map(([_, [[_2, name]]]) => name);
-	const ptree = result
-		? trace_to_ptree(env.trace_history, rules, env.input)
-		: null;
+    const ptree = trace_to_ptree(env.trace_history, rules, env.input, !result);
 
 	let error;
 	if (env.panic) {
