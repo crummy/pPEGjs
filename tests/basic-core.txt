@@ -208,3 +208,13 @@ x
 
 ------ not
 x
+
+# Backtrack trace/tree cleanup regression:
+
+=================
+ p = x d / x
+ x = [a-z]
+ d = [0-9]
+-----------------
+a
+----------------- not

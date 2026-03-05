@@ -280,6 +280,24 @@ function ID(exp, env) {
 } // ID
 
 /**
+ * Marks trace entries created by a failed branch as failures.
+ * This keeps backtracked partial matches out of successful ptree output.
+ *
+ * @param {Env} env
+ * @param {number} trace_mark
+ * @param {number} reset_pos
+ */
+function rollback_trace(env, trace_mark, reset_pos) {
+	for (let i = trace_mark; i < env.trace_history.length; i += 4) {
+		const ruleId = env.trace_history[i];
+		const start = env.trace_history[i + 2];
+		if (ruleId < 0 || start < reset_pos) continue;
+		// negative ids encode failures as -(idx + 1)
+		env.trace_history[i] = -(ruleId + 1);
+	}
+}
+
+/**
  *
  * @param {CommandALT} exp
  * @param {Env} env
@@ -295,12 +313,14 @@ function ALT(exp, env) {
 			const x = exp[2][i]; // guard ch
 			if (x && ch !== x) continue; // forget this alt
 		}
+		const trace_mark = env.trace_history.length;
 		const arg = exp[1][i];
 		const result = arg[0](arg, env);
 		if (result) {
 			anyMatched = true;
 			break;
 		}
+		rollback_trace(env, trace_mark, start);
 		env.pos = start; // reset pos and try the next alt
 	}
 	if (!anyMatched) {
@@ -327,10 +347,12 @@ function SEQ(exp, env) {
 	while (true) {
 		let i = 0;
 		let start = env.pos;
+		const trace_mark = env.trace_history.length;
 		for (i = 0; i < args.length; i += 1) {
 			const arg = args[i];
 			const result = arg[0](arg, env);
 			if (result === false) {
+				rollback_trace(env, trace_mark, start);
 				if (count >= min) {
 					env.pos = start;
 					return true;
@@ -1343,7 +1365,7 @@ function parse(codex, input, extend = {}, options = {}) {
 	const start = codex.start;
 	const result = start[0](start, env);
 	const rules = env.codex.rules.map(([_, [[_2, name]]]) => name);
-    const ptree = trace_to_ptree(env.trace_history, rules, env.input, !result);
+	const ptree = trace_to_ptree(env.trace_history, rules, env.input, !result);
 
 	let error;
 	if (env.panic) {

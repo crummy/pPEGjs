@@ -9,8 +9,9 @@
 		"test": "tests"
 	},
 	"scripts": {
-		"test": "node peg-play.mjs tests",
-		"format": "biome format --write *.mjs *.ts"
+		"test": "node peg-play.mjs tests && node --test tests/parser-output.test.mjs",
+		"test:output": "node --test tests/parser-output.test.mjs",
+		"format": "biome format --write *.mjs"
 	},
 	"repository": {
 		"type": "git",
