@@ -28,5 +28,16 @@ d = [0-9]`);
                 ptree: ["x", "a"],
             });
         });
+
+        test("negation does not leak into final ptree", () => {
+            const compiled = compileGrammar(`s = P+ x
+P = x &x
+x = [a-z]`);
+
+            assertParse(compiled, "abc", {
+                ok: true,
+                ptree: ['s', [['P', [['x', 'a']]], ['P', [['x', 'b']]], ['x', 'c']]]
+            })
+        })
     });
 });

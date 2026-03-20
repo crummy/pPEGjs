@@ -418,8 +418,10 @@ function PRE(exp, env) {
 	const start = env.pos;
 	const trace = env.trace;
 	const peak = env.peak;
+	const trace_mark = env.trace_history.length;
 	env.trace = false;
 	const result = term[0](term, env);
+	rollback_trace(env, trace_mark, start);
 	env.peak = peak;
 	env.trace = trace;
 	if (trace) trace_pre(exp, env, result);
