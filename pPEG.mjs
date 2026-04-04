@@ -352,11 +352,15 @@ function SEQ(exp, env) {
 			const arg = args[i];
 			const result = arg[0](arg, env);
 			if (result === false) {
-				rollback_trace(env, trace_mark, start);
 				if (count >= min) {
+					// This iteration is being abandoned after satisfying the minimum,
+					// so hide its partial matches from the successful trace.
+					rollback_trace(env, trace_mark, start);
 					env.pos = start;
 					return true;
 				}
+				// Let the failing path stand so successful earlier siblings remain
+				// visible when the overall parse fails.
 				return false;
 			}
 		}
