@@ -1519,6 +1519,47 @@ function show_err(err) {
 	return "No errors.";
 }
 
-const peg = { compile, show_tree, show_err };
+/**
+ * @typedef {object} TraceElement
+ * @property {string} rule
+ * @property {boolean} success
+ * @property {number} start
+ * @property {number} end
+ * @property {TraceElement[]} children
+ */
+
+/**
+ *
+ * @param {{trace_history: TraceHistory, rules: string[]}} input
+ * @return TraceElement
+ */
+function show_trace({trace_history, rules}) {
+	/**
+	 * @param {number} i - index into trace_history, should be a multiple of 4
+	 */
+	function buildTrace(i) {
+		const ruleId = trace_history[i]
+		const success = ruleId >= 0
+		const rule = success ? rules[ruleId] : rules[-ruleId - 1]
+		const depth = trace_history[i + 1]
+		const start = trace_history[i + 2]
+		const end = trace_history[i + 3]
+		const element = {
+			rule,
+			success,
+			start,
+			end,
+			children: []
+		}
+		for (let j = i + 4; trace_history[j + 1] > depth; j = j + 4) {
+			const child = buildTrace(j)
+			element.children.push(child)
+		}
+		return element;
+	}
+	return buildTrace(0)
+}
+
+const peg = { compile, show_tree, show_err, show_trace };
 
 export default peg;
