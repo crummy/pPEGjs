@@ -17,7 +17,7 @@ function assertTree(compiled, input, expected) {
 function assertTrace(compiled, input, expected) {
     const result = compiled.parse(input, expected.options);
     assert.equal(result.ok, expected.ok, "parse result should match expectation");
-    assert.deepEqual(result.trace_history, expected.trace);
+    assert.deepEqual(peg.show_trace(result), expected.trace);
 }
 
 describe("Parser Output", () => {
@@ -56,12 +56,31 @@ describe("Error flagging", () => {
 	test("should only mark ancestors as failed", () => {
 		assertTrace(dateGrammar, "2021-02-0d3", {
 			ok: false,
-			trace: [
-                -1, 0, 0, 8, // date, 0..8 - failed
-                1, 1, 0, 4, // year, 0..4
-                2, 1, 5, 7, // month, 5..7
-                -4, 1, 8, 9 // day, 8..9, failed
-            ]
+			trace: {
+                rule: "date",
+                success: false,
+                start: 0,
+                end: 8,
+                children: [{
+                    rule: "year",
+                    success: true,
+                    start: 0,
+                    end: 4,
+                    children: []
+                }, {
+                    rule: "month",
+                    success: true,
+                    start: 5,
+                    end: 7,
+                    children: []
+                }, {
+                    rule: "day",
+                    success: false,
+                    start: 8,
+                    end: 9,
+                    children: []
+                }]
+            }
 		})
 	})
 
@@ -72,13 +91,43 @@ a = '1' / b
 b = '2'`)
         assertTrace(compiled, '223', {
             ok: false,
-            trace: [
-                -1, 0,  0, 2, // root, 0..2 - failed
-                1, 1, 0, 1, // root > a, 0..1
-                2, 2, 0, 1, // root > a > b, 0..1
-                2, 1, 1, 2, // root > b, 1..2
-                -2, 1, 2, 2 // root > a, 2..2 - failed
-            ]
+            trace: {
+                rule: "root",
+                success: false,
+                start: 0,
+                end: 2,
+                children: [{
+                    rule: "a",
+                    success: true,
+                    start: 0,
+                    end: 1,
+                    children: [{
+                        rule: "b",
+                        success: true,
+                        start: 0,
+                        end: 1,
+                        children: []
+                    }]
+                }, {
+                    rule: "b",
+                    success: true,
+                    start: 0,
+                    end: 1,
+                    children: []
+                }, {
+                    rule: "b",
+                    success: true,
+                    start: 1,
+                    end: 2,
+                    children: []
+                }, {
+                    rule: "a",
+                    success: false,
+                    start: 2,
+                    end: 2,
+                    children: []
+                }]
+            }
         })
     })
 })
