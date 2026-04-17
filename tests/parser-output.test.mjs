@@ -130,4 +130,144 @@ b = '2'`)
             }
         })
     })
+
+    test("should keep successful repeated fields before a failing field", () => {
+        const compiled = compileGrammar(`
+minijson = '{' field (','field)*  '}'
+field = key ':' (value/minijson)
+key = string
+value = string
+string = '"' [a-z]+ '"'`)
+
+        assertTrace(compiled, '{"foo":"bar","baz"x"v"}', {
+            ok: false,
+            trace: {
+                rule: "minijson",
+                success: false,
+                start: 0,
+                end: 12,
+                children: [{
+                    rule: "field",
+                    success: true,
+                    start: 1,
+                    end: 12,
+                    children: [{
+                        rule: "key",
+                        success: true,
+                        start: 1,
+                        end: 6,
+                        children: [{
+                            rule: "string",
+                            success: true,
+                            start: 1,
+                            end: 6,
+                            children: []
+                        }]
+                    }, {
+                        rule: "string",
+                        success: true,
+                        start: 1,
+                        end: 6,
+                        children: []
+                    }, {
+                        rule: "value",
+                        success: true,
+                        start: 7,
+                        end: 12,
+                        children: [{
+                            rule: "string",
+                            success: true,
+                            start: 7,
+                            end: 12,
+                            children: []
+                        }]
+                    }, {
+                        rule: "string",
+                        success: true,
+                        start: 7,
+                        end: 12,
+                        children: []
+                    }]
+                }, {
+                    rule: "key",
+                    success: true,
+                    start: 1,
+                    end: 6,
+                    children: [{
+                        rule: "string",
+                        success: true,
+                        start: 1,
+                        end: 6,
+                        children: []
+                    }]
+                }, {
+                    rule: "string",
+                    success: true,
+                    start: 1,
+                    end: 6,
+                    children: []
+                }, {
+                    rule: "value",
+                    success: true,
+                    start: 7,
+                    end: 12,
+                    children: [{
+                        rule: "string",
+                        success: true,
+                        start: 7,
+                        end: 12,
+                        children: []
+                    }]
+                }, {
+                    rule: "string",
+                    success: true,
+                    start: 7,
+                    end: 12,
+                    children: []
+                }, {
+                    rule: "field",
+                    success: false,
+                    start: 13,
+                    end: 18,
+                    children: [{
+                        rule: "key",
+                        success: false,
+                        start: 13,
+                        end: 18,
+                        children: [{
+                            rule: "string",
+                            success: false,
+                            start: 13,
+                            end: 18,
+                            children: []
+                        }]
+                    }, {
+                        rule: "string",
+                        success: false,
+                        start: 13,
+                        end: 18,
+                        children: []
+                    }]
+                }, {
+                    rule: "key",
+                    success: false,
+                    start: 13,
+                    end: 18,
+                    children: [{
+                        rule: "string",
+                        success: false,
+                        start: 13,
+                        end: 18,
+                        children: []
+                    }]
+                }, {
+                    rule: "string",
+                    success: false,
+                    start: 13,
+                    end: 18,
+                    children: []
+                }]
+            }
+        })
+    })
 })
