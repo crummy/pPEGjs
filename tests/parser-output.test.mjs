@@ -111,12 +111,6 @@ b = '2'`)
                 }, {
                     rule: "b",
                     success: true,
-                    start: 0,
-                    end: 1,
-                    children: []
-                }, {
-                    rule: "b",
-                    success: true,
                     start: 1,
                     end: 2,
                     children: []
@@ -164,12 +158,6 @@ string = '"' [a-z]+ '"'`)
                             children: []
                         }]
                     }, {
-                        rule: "string",
-                        success: true,
-                        start: 1,
-                        end: 6,
-                        children: []
-                    }, {
                         rule: "value",
                         success: true,
                         start: 7,
@@ -181,49 +169,7 @@ string = '"' [a-z]+ '"'`)
                             end: 12,
                             children: []
                         }]
-                    }, {
-                        rule: "string",
-                        success: true,
-                        start: 7,
-                        end: 12,
-                        children: []
                     }]
-                }, {
-                    rule: "key",
-                    success: true,
-                    start: 1,
-                    end: 6,
-                    children: [{
-                        rule: "string",
-                        success: true,
-                        start: 1,
-                        end: 6,
-                        children: []
-                    }]
-                }, {
-                    rule: "string",
-                    success: true,
-                    start: 1,
-                    end: 6,
-                    children: []
-                }, {
-                    rule: "value",
-                    success: true,
-                    start: 7,
-                    end: 12,
-                    children: [{
-                        rule: "string",
-                        success: true,
-                        start: 7,
-                        end: 12,
-                        children: []
-                    }]
-                }, {
-                    rule: "string",
-                    success: true,
-                    start: 7,
-                    end: 12,
-                    children: []
                 }, {
                     rule: "field",
                     success: false,
@@ -241,31 +187,7 @@ string = '"' [a-z]+ '"'`)
                             end: 18,
                             children: []
                         }]
-                    }, {
-                        rule: "string",
-                        success: false,
-                        start: 13,
-                        end: 18,
-                        children: []
                     }]
-                }, {
-                    rule: "key",
-                    success: false,
-                    start: 13,
-                    end: 18,
-                    children: [{
-                        rule: "string",
-                        success: false,
-                        start: 13,
-                        end: 18,
-                        children: []
-                    }]
-                }, {
-                    rule: "string",
-                    success: false,
-                    start: 13,
-                    end: 18,
-                    children: []
                 }]
             }
         })

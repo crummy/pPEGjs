@@ -72,3 +72,57 @@ day   = [0-3][0-9]`
         })
     })
 })
+
+describe("Nested traces", () => {
+
+    const grammar = `
+top  = pair
+pair = left right
+left = digit
+right = digit
+digit = [0-9]`
+
+    const compiled = peg.compile(grammar);
+
+    test("keeps descendants attached to their direct parent", () => {
+        const result = compiled.parse("42")
+
+        assert.deepEqual(peg.show_trace(result), {
+            rule: "top",
+            success: true,
+            start: 0,
+            end: 2,
+            children: [{
+                rule: "pair",
+                success: true,
+                start: 0,
+                end: 2,
+                children: [{
+                    rule: "left",
+                    success: true,
+                    start: 0,
+                    end: 1,
+                    children: [{
+                        rule: "digit",
+                        success: true,
+                        start: 0,
+                        end: 1,
+                        children: []
+                    }]
+                }, {
+                    rule: "right",
+                    success: true,
+                    start: 1,
+                    end: 2,
+                    children: [{
+                        rule: "digit",
+                        success: true,
+                        start: 1,
+                        end: 2,
+                        children: []
+                    }]
+                }]
+            }]
+        })
+    })
+})

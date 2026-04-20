@@ -1533,31 +1533,34 @@ function show_err(err) {
  * @param {{trace_history: TraceHistory, rules: string[]}} input
  * @return TraceElement
  */
-function show_trace({trace_history, rules}) {
+function show_trace({ trace_history, rules }) {
 	/**
 	 * @param {number} i - index into trace_history, should be a multiple of 4
+	 * @returns {[TraceElement, number]} element and next unread trace index
 	 */
 	function buildTrace(i) {
-		const ruleId = trace_history[i]
-		const success = ruleId >= 0
-		const rule = success ? rules[ruleId] : rules[-ruleId - 1]
-		const depth = trace_history[i + 1]
-		const start = trace_history[i + 2]
-		const end = trace_history[i + 3]
+		const ruleId = trace_history[i];
+		const success = ruleId >= 0;
+		const rule = success ? rules[ruleId] : rules[-ruleId - 1];
+		const depth = trace_history[i + 1];
+		const start = trace_history[i + 2];
+		const end = trace_history[i + 3];
 		const element = {
 			rule,
 			success,
 			start,
 			end,
-			children: []
+			children: [],
+		};
+		let j = i + 4;
+		while (j < trace_history.length && trace_history[j + 1] > depth) {
+			const [child, next] = buildTrace(j);
+			element.children.push(child);
+			j = next;
 		}
-		for (let j = i + 4; trace_history[j + 1] > depth; j = j + 4) {
-			const child = buildTrace(j)
-			element.children.push(child)
-		}
-		return element;
+		return [element, j];
 	}
-	return buildTrace(0)
+	return buildTrace(0)[0];
 }
 
 const peg = { compile, show_tree, show_err, show_trace };
