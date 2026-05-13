@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {describe, test} from "node:test";
 import peg from "../pPEG.mjs";
+import {assertCompactTrace} from "./trace-test-helper.mjs";
 
 function compileGrammar(grammar) {
     const compiled = peg.compile(grammar);
@@ -17,7 +18,7 @@ function assertTree(compiled, input, expected) {
 function assertTrace(compiled, input, expected) {
     const result = compiled.parse(input, expected.options);
     assert.equal(result.ok, expected.ok, "parse result should match expectation");
-    assert.deepEqual(peg.show_trace(result), expected.trace);
+    assertCompactTrace(result, expected.trace);
 }
 
 describe("Parser Output", () => {
@@ -56,31 +57,7 @@ describe("Error flagging", () => {
 	test("should only mark ancestors as failed", () => {
 		assertTrace(dateGrammar, "2021-02-0d3", {
 			ok: false,
-			trace: {
-                rule: "date",
-                success: false,
-                start: 0,
-                end: 8,
-                children: [{
-                    rule: "year",
-                    success: true,
-                    start: 0,
-                    end: 4,
-                    children: []
-                }, {
-                    rule: "month",
-                    success: true,
-                    start: 5,
-                    end: 7,
-                    children: []
-                }, {
-                    rule: "day",
-                    success: false,
-                    start: 8,
-                    end: 9,
-                    children: []
-                }]
-            }
+			trace: ["!date", ["year", "month", "!day"]]
 		})
 	})
 
@@ -91,37 +68,7 @@ a = '1' / b
 b = '2'`)
         assertTrace(compiled, '223', {
             ok: false,
-            trace: {
-                rule: "root",
-                success: false,
-                start: 0,
-                end: 2,
-                children: [{
-                    rule: "a",
-                    success: true,
-                    start: 0,
-                    end: 1,
-                    children: [{
-                        rule: "b",
-                        success: true,
-                        start: 0,
-                        end: 1,
-                        children: []
-                    }]
-                }, {
-                    rule: "b",
-                    success: true,
-                    start: 1,
-                    end: 2,
-                    children: []
-                }, {
-                    rule: "a",
-                    success: false,
-                    start: 2,
-                    end: 2,
-                    children: []
-                }]
-            }
+            trace: ["!root", [["a", ["b"]], "b", "!a"]]
         })
     })
 
@@ -135,61 +82,58 @@ string = '"' [a-z]+ '"'`)
 
         assertTrace(compiled, '{"foo":"bar","baz"x"v"}', {
             ok: false,
-            trace: {
-                rule: "minijson",
-                success: false,
-                start: 0,
-                end: 12,
-                children: [{
-                    rule: "field",
-                    success: true,
-                    start: 1,
-                    end: 12,
-                    children: [{
-                        rule: "key",
-                        success: true,
-                        start: 1,
-                        end: 6,
-                        children: [{
-                            rule: "string",
-                            success: true,
-                            start: 1,
-                            end: 6,
-                            children: []
-                        }]
-                    }, {
-                        rule: "value",
-                        success: true,
-                        start: 7,
-                        end: 12,
-                        children: [{
-                            rule: "string",
-                            success: true,
-                            start: 7,
-                            end: 12,
-                            children: []
-                        }]
-                    }]
-                }, {
-                    rule: "field",
-                    success: false,
-                    start: 13,
-                    end: 18,
-                    children: [{
-                        rule: "key",
-                        success: false,
-                        start: 13,
-                        end: 18,
-                        children: [{
-                            rule: "string",
-                            success: false,
-                            start: 13,
-                            end: 18,
-                            children: []
-                        }]
-                    }]
-                }]
-            }
+            trace: [
+                "!minijson",
+                [
+                    ["field", [["key", ["string"]], ["value", ["string"]]]],
+                    ["!field", [["-key", ["-string"]]]]
+                ]
+            ]
         })
+    })
+
+    test("should mark dropped trace entries separately from failures", () => {
+        const compiled = compileGrammar(`
+s = t y*
+t = (x x)*
+x = [a-z]
+y = [a-z]`)
+
+        const result = compiled.parse("abc")
+        assert.equal(result.ok, true)
+        assertCompactTrace(result, [
+            "s",
+            [["t", ["x", "x", "-x", "!x"]], "y", "!y"]
+        ])
+
+        const decoded = []
+        for (let i = 0; i < result.trace_history.length; i += 4) {
+            decoded.push(peg.parseTraceHistory(
+                result.trace_history[i],
+                result.trace_history[i + 1],
+                result.trace_history[i + 2],
+                result.trace_history[i + 3]
+            ))
+        }
+
+        assert.deepEqual(
+            decoded.map((entry) => ({
+                rule: result.rules[entry.ruleId],
+                failed: entry.failed,
+                dropped: entry.dropped,
+                start: entry.start,
+                end: entry.end,
+            })),
+            [
+                {rule: "s", failed: false, dropped: false, start: 0, end: 3},
+                {rule: "t", failed: false, dropped: false, start: 0, end: 2},
+                {rule: "x", failed: false, dropped: false, start: 0, end: 1},
+                {rule: "x", failed: false, dropped: false, start: 1, end: 2},
+                {rule: "x", failed: false, dropped: true, start: 2, end: 3},
+                {rule: "x", failed: true, dropped: true, start: 3, end: 3},
+                {rule: "y", failed: false, dropped: false, start: 2, end: 3},
+                {rule: "y", failed: true, dropped: true, start: 3, end: 3},
+            ]
+        )
     })
 })

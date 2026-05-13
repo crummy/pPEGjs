@@ -11,8 +11,42 @@
 /**
  * @typedef {number[]} TraceHistory
  * Flat array of trace records: [ruleId, depth, start, end, ...]
- * ruleId < 0 indicates a failure (rule index encoded as -(idx+1)).
+ * ruleId encodes the rule index and trace flags in a single integer.
  */
+
+const TRACE_FAILED = 1;
+const TRACE_DROPPED = 2;
+const TRACE_RULE_SHIFT = 2;
+
+function encodeTraceRuleId(ruleId) {
+	return ruleId << TRACE_RULE_SHIFT;
+}
+
+function setFailure(traceRuleId) {
+	return traceRuleId | TRACE_FAILED;
+}
+
+function setDropped(traceRuleId) {
+	return traceRuleId | TRACE_DROPPED;
+}
+
+/**
+ *
+ * @param {number} ruleId
+ * @param {number} depth
+ * @param {number} start
+ * @param {number} end
+ */
+function parseTraceHistory(ruleId, depth, start, end) {
+	return {
+		ruleId: ruleId >> TRACE_RULE_SHIFT,
+		depth,
+		start,
+		end,
+		failed: (ruleId & TRACE_FAILED) !== 0,
+		dropped: (ruleId & TRACE_DROPPED) !== 0,
+	};
+}
 
 /**
  * @typedef {object} Options
@@ -243,13 +277,12 @@ function ID(exp, env) {
 	const start = env.pos;
 	const depth = env.depth;
 	const trace_index = env.trace_history.length;
-	env.trace_history.push(idx, depth, start, 0);
+	env.trace_history.push(encodeTraceRuleId(idx), depth, start, 0);
 	const expr = env.code[idx];
 	if (env.panic || env.depth > env.max_depth) {
 		if (!env.panic)
 			env.panic = `max depth of recursion exceeded in rules:\n ... ${env.rule_names.slice(-6).join(" ")}\n`;
-		// negative idx means failure. idx + 1 to avoid re-using 0
-		env.trace_history[trace_index] = -(idx + 1);
+		env.trace_history[trace_index] = setFailure(env.trace_history[trace_index]);
 		env.trace_history[trace_index + 3] = env.pos;
 		return false;
 	}
@@ -268,8 +301,7 @@ function ID(exp, env) {
 			env.fault_rule = name;
 			env.fault_exp = exp;
 		}
-		// idx + 1 to avoid re-using 0
-		env.trace_history[trace_index] = -(idx + 1);
+		env.trace_history[trace_index] = setFailure(env.trace_history[trace_index]);
 		env.trace_history[trace_index + 3] = env.pos;
 		env.pos = start;
 		return false;
@@ -289,11 +321,14 @@ function ID(exp, env) {
  */
 function rollback_trace(env, trace_mark, reset_pos) {
 	for (let i = trace_mark; i < env.trace_history.length; i += 4) {
-		const ruleId = env.trace_history[i];
-		const start = env.trace_history[i + 2];
-		if (ruleId < 0 || start < reset_pos) continue;
-		// negative ids encode failures as -(idx + 1)
-		env.trace_history[i] = -(ruleId + 1);
+		const trace = parseTraceHistory(
+			env.trace_history[i],
+			env.trace_history[i + 1],
+			env.trace_history[i + 2],
+			env.trace_history[i + 3],
+		);
+		if (trace.start < reset_pos) continue;
+		env.trace_history[i] = setDropped(env.trace_history[i]);
 	}
 }
 
@@ -391,8 +426,14 @@ function REP(exp, env) {
 	let pos = env.pos;
 
 	while (true) {
+		const trace_mark = env.trace_history.length;
 		const result = expr[0](expr, env);
-		if (result === false) break;
+		if (result === false) {
+			if (count >= min) {
+				rollback_trace(env, trace_mark, pos);
+			}
+			break;
+		}
 		count += 1;
 		if (pos === env.pos) break;
 		if (count === max) break;
@@ -581,15 +622,15 @@ function dump_trace(exp, env) {
 	let report = `<?> at line: ${line_number(env.input, env.pos)}\n`;
 	const rules = env.codex.rules.map(([_, [[_2, name]]]) => name);
 	for (let i = 0; i < env.trace_history.length; i += 4) {
-		const ruleId = env.trace_history[i];
-		const depth = env.trace_history[i + 1];
-		const start = env.trace_history[i + 2];
-		const end = env.trace_history[i + 3];
-		const fail = ruleId < 0;
-		const idx = fail ? -ruleId - 1 : ruleId;
-		const name = rules[idx] ?? "?";
-		const flag = fail ? "!" : " ";
-		report += `${"  ".repeat(depth)}${flag}${name} [${start}, ${end}]\n`;
+		const trace = parseTraceHistory(
+			env.trace_history[i],
+			env.trace_history[i + 1],
+			env.trace_history[i + 2],
+			env.trace_history[i + 3],
+		);
+		const name = rules[trace.ruleId] ?? "?";
+		const flag = trace.failed ? "!" : trace.dropped ? "-" : " ";
+		report += `${"  ".repeat(trace.depth)}${flag}${name} [${trace.start}, ${trace.end}]\n`;
 	}
 	report += line_report(env.input, env.pos);
 	console.log(report);
@@ -617,12 +658,15 @@ function same_match(exp, env) {
 		throw `${exp[1]} undefined rule: ${name} at line ${row}, column ${col}`;
 	let prior = ""; // previous name rule result
 	for (let i = env.trace_history.length - 4; i >= 0; i -= 4) {
-		const ruleId = env.trace_history[i];
-		if (ruleId < 0) continue;
-		if (ruleId !== idx) continue;
-		const start = env.trace_history[i + 2];
-		const end = env.trace_history[i + 3];
-		prior = env.input.slice(start, end);
+		const trace = parseTraceHistory(
+			env.trace_history[i],
+			env.trace_history[i + 1],
+			env.trace_history[i + 2],
+			env.trace_history[i + 3],
+		);
+		if (trace.failed || trace.dropped) continue;
+		if (trace.ruleId !== idx) continue;
+		prior = env.input.slice(trace.start, trace.end);
 		break;
 	}
 	if (prior === "") return true; // '' empty match default (no prior value)
@@ -1266,23 +1310,32 @@ function trace_to_ptree(trace, rules, input, include_failed = false) {
 	const stack = [];
 	let skip_depth = null;
 	for (let i = 0; i < trace.length; i += 4) {
-		const ruleId = trace[i];
-		const depth = trace[i + 1];
-		const start = trace[i + 2];
-		const end = trace[i + 3];
+		const record = parseTraceHistory(
+			trace[i],
+			trace[i + 1],
+			trace[i + 2],
+			trace[i + 3],
+		);
 		if (skip_depth !== null) {
-			if (depth > skip_depth) continue;
+			if (record.depth > skip_depth) continue;
 			skip_depth = null;
 		}
-		const failed = ruleId < 0;
-		const idx = failed ? -ruleId - 1 : ruleId;
-		const name = rules[idx];
-		if ((failed && !include_failed) || (name && name[0] === "_")) {
-			skip_depth = depth;
+		const name = rules[record.ruleId];
+		if (
+			((record.failed || record.dropped) && !include_failed) ||
+			(name && name[0] === "_")
+		) {
+			skip_depth = record.depth;
 			continue;
 		}
-		const node = { name, depth, start, end, children: [] };
-		while (stack.length > 0 && depth <= stack[stack.length - 1].depth) {
+		const node = {
+			name,
+			depth: record.depth,
+			start: record.start,
+			end: record.end,
+			children: [],
+		};
+		while (stack.length > 0 && record.depth <= stack[stack.length - 1].depth) {
 			stack.pop();
 		}
 		if (stack.length > 0) {
@@ -1522,7 +1575,8 @@ function show_err(err) {
 /**
  * @typedef {object} TraceElement
  * @property {string} rule
- * @property {boolean} success
+ * @property {boolean} failed
+ * @property {boolean} dropped
  * @property {number} start
  * @property {number} end
  * @property {TraceElement[]} children
@@ -1539,21 +1593,22 @@ function show_trace({ trace_history, rules }) {
 	 * @returns {[TraceElement, number]} element and next unread trace index
 	 */
 	function buildTrace(i) {
-		const ruleId = trace_history[i];
-		const success = ruleId >= 0;
-		const rule = success ? rules[ruleId] : rules[-ruleId - 1];
-		const depth = trace_history[i + 1];
-		const start = trace_history[i + 2];
-		const end = trace_history[i + 3];
+		const trace = parseTraceHistory(
+			trace_history[i],
+			trace_history[i + 1],
+			trace_history[i + 2],
+			trace_history[i + 3],
+		);
 		const element = {
-			rule,
-			success,
-			start,
-			end,
+			rule: rules[trace.ruleId],
+			failed: trace.failed,
+			dropped: trace.dropped,
+			start: trace.start,
+			end: trace.end,
 			children: [],
 		};
 		let j = i + 4;
-		while (j < trace_history.length && trace_history[j + 1] > depth) {
+		while (j < trace_history.length && trace_history[j + 1] > trace.depth) {
 			const [child, next] = buildTrace(j);
 			element.children.push(child);
 			j = next;
@@ -1563,6 +1618,7 @@ function show_trace({ trace_history, rules }) {
 	return buildTrace(0)[0];
 }
 
-const peg = { compile, show_tree, show_err, show_trace };
+const peg = { compile, show_tree, show_err, show_trace, parseTraceHistory };
 
+export { parseTraceHistory };
 export default peg;
