@@ -45,6 +45,41 @@ x = [a-z]`);
             })
         })
     });
+
+    describe("Malformed JSON", () => {
+        test("failed root trace spans as far as the failed parse progressed", () => {
+            const compiled = compileGrammar(String.raw`
+json   = _ value _
+value  =  Str / Arr / Obj / num / lit
+Obj    = '{'_ (memb (_','_ memb)*)? _'}'
+memb   = Str _':'_ value
+Arr    = '['_ (value (_','_ value)*)? _']'
+Str    = '"' chars* '"'
+chars  = ~[\u0000-\u001F"\]+ / '\' esc
+esc    = ["\/bfnrt] / 'u' [0-9a-fA-F]*4
+num    = _int _frac? _exp?
+_int   = '-'? ([1-9] [0-9]* / '0')
+_frac  = '.' [0-9]+
+_exp   = [eE] [+-]? [0-9]+
+lit    = 'true' / 'false' / 'null'
+_      = [ \t\n\r]*`);
+
+            const result = compiled.parse("{a}");
+            assert.equal(result.ok, false);
+
+            const trace = peg.show_trace(result);
+            assert.equal(trace.rule, "json");
+            assert.equal(trace.failed, true);
+            assert.equal(trace.start, 0);
+            assert.equal(trace.end, 1);
+            assert.equal(trace.children[1].rule, "value");
+            assert.equal(trace.children[1].start, 0);
+            assert.equal(trace.children[1].end, 1);
+            assert.equal(trace.children[1].children[0].rule, "Obj");
+            assert.equal(trace.children[1].children[0].start, 0);
+            assert.equal(trace.children[1].children[0].end, 1);
+        });
+    });
 });
 
 const dateGrammar = compileGrammar(`

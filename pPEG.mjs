@@ -303,7 +303,6 @@ function ID(exp, env) {
 		}
 		env.trace_history[trace_index] = setFailure(env.trace_history[trace_index]);
 		env.trace_history[trace_index + 3] = env.pos;
-		env.pos = start;
 		return false;
 	}
 	env.trace_history[trace_index + 3] = env.pos;
@@ -342,6 +341,7 @@ function ALT(exp, env) {
 	if (env.trace) trace_rep(exp, env);
 	const start = env.pos;
 	const ch = env.input[start];
+	let max = start;
 	let anyMatched = false;
 	for (let i = 0; i < exp[1].length; i += 1) {
 		if (!env.trace && exp.length > 2) {
@@ -355,10 +355,12 @@ function ALT(exp, env) {
 			anyMatched = true;
 			break;
 		}
+		if (env.pos > max) max = env.pos;
 		rollback_trace(env, trace_mark, start);
 		env.pos = start; // reset pos and try the next alt
 	}
 	if (!anyMatched) {
+		env.pos = max;
 		// Track fault information for better error reporting
 		if (env.pos > env.fault_pos) {
 			env.fault_pos = env.pos;
@@ -431,6 +433,7 @@ function REP(exp, env) {
 		if (result === false) {
 			if (count >= min) {
 				rollback_trace(env, trace_mark, pos);
+				env.pos = pos;
 			}
 			break;
 		}
