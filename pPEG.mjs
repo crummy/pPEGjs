@@ -1458,7 +1458,7 @@ function parse(codex, input, extend = {}, options = {}) {
 				fault_rule: env.fault_rule,
 				input_snippet: line_report(env.input, env.fault_pos),
 				expected,
-				found: env.input.slice(env.fault_pos, env.fault_pos + 10),
+				found: ellipsify(env.input.slice(env.fault_pos, env.input.length)),
 				location: line_number(env.input, env.fault_pos),
 			};
 		} else {
@@ -1468,7 +1468,7 @@ function parse(codex, input, extend = {}, options = {}) {
 				message: "Failed to parse input",
 				line,
 				column,
-				input_snippet: env.input.slice(Math.max(0, env.pos - 5), env.pos + 10),
+				found: ellipsify(env.input.slice(env.fault_pos, env.input.length))
 			};
 		}
 	} else if (env.pos < input.length && !env.options.short) {
@@ -1479,7 +1479,7 @@ function parse(codex, input, extend = {}, options = {}) {
 			location: line_number(env.input, env.pos),
 			line,
 			column,
-			input_snippet: env.input.slice(Math.max(0, env.pos - 5), env.pos + 10),
+			found: ellipsify(env.input.slice(env.pos, env.input.length))
 		};
 	} else if (!ptree) {
 		const { row: line, col: column } = line_info(env.input, env.pos);
@@ -1488,7 +1488,7 @@ function parse(codex, input, extend = {}, options = {}) {
 			message: "Empty parse tree",
 			line,
 			column,
-			input_snippet: env.input.slice(Math.max(0, env.pos - 5), env.pos + 10),
+			found: ellipsify(env.input.slice(env.pos, env.input.length))
 		};
 	}
 
@@ -1510,6 +1510,15 @@ function parse(codex, input, extend = {}, options = {}) {
 		ptree,
 		trace_history: env.trace_history,
 	};
+}
+
+function ellipsify(str, length = 10) {
+	const escaped = str.replace(/\r?\n/g, "\\n").replace(/\t/g, "\\t");
+	if (escaped.length <= length) {
+		return escaped;
+	} else {
+		return escaped.slice(0, length) + "..."
+	}
 }
 
 /**
