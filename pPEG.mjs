@@ -1325,7 +1325,8 @@ function trace_to_ptree(trace, rules, input, include_failed = false) {
 		}
 		const name = rules[record.ruleId];
 		if (
-			((record.failed || record.dropped) && !include_failed) ||
+			record.dropped ||
+			(record.failed && !include_failed) ||
 			(name && name[0] === "_")
 		) {
 			skip_depth = record.depth;
@@ -1468,7 +1469,7 @@ function parse(codex, input, extend = {}, options = {}) {
 				message: "Failed to parse input",
 				line,
 				column,
-				found: ellipsify(env.input.slice(env.fault_pos, env.input.length))
+				found: ellipsify(env.input.slice(env.fault_pos, env.input.length)),
 			};
 		}
 	} else if (env.pos < input.length && !env.options.short) {
@@ -1479,7 +1480,7 @@ function parse(codex, input, extend = {}, options = {}) {
 			location: line_number(env.input, env.pos),
 			line,
 			column,
-			found: ellipsify(env.input.slice(env.pos, env.input.length))
+			found: ellipsify(env.input.slice(env.pos, env.input.length)),
 		};
 	} else if (!ptree) {
 		const { row: line, col: column } = line_info(env.input, env.pos);
@@ -1488,7 +1489,7 @@ function parse(codex, input, extend = {}, options = {}) {
 			message: "Empty parse tree",
 			line,
 			column,
-			found: ellipsify(env.input.slice(env.pos, env.input.length))
+			found: ellipsify(env.input.slice(env.pos, env.input.length)),
 		};
 	}
 
@@ -1517,7 +1518,7 @@ function ellipsify(str, length = 10) {
 	if (escaped.length <= length) {
 		return escaped;
 	} else {
-		return escaped.slice(0, length) + "..."
+		return escaped.slice(0, length) + "...";
 	}
 }
 

@@ -171,4 +171,22 @@ y = [a-z]`)
             ]
         )
     })
+
+    test("should preserve completed array items in ptree before missing closing delimiter", () => {
+        const compiled = compileGrammar(`
+Arr = '[' (Arr / int / _)* ']'
+int = [0-9]+
+_   = [ \\t\\n\\r]`)
+
+        assertTree(compiled, "[1 2", {
+            ok: false,
+            ptree: [
+                "Arr",
+                [
+                    ["int", "1"],
+                    ["int", "2"],
+                ],
+            ],
+        })
+    })
 })
