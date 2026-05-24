@@ -78,6 +78,8 @@ _      = [ \t\n\r]*`);
             assert.equal(trace.children[1].children[0].rule, "Obj");
             assert.equal(trace.children[1].children[0].start, 0);
             assert.equal(trace.children[1].children[0].end, 1);
+
+            assert.deepEqual(result.ptree, ["Obj", "{"]);
         });
     });
 });

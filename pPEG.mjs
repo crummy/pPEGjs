@@ -1324,8 +1324,11 @@ function trace_to_ptree(trace, rules, input, include_failed = false) {
 			skip_depth = null;
 		}
 		const name = rules[record.ruleId];
+		const empty_fault =
+			include_failed && (record.failed || record.dropped) && record.start === record.end;
 		if (
-			record.dropped ||
+			empty_fault ||
+			(record.dropped && !include_failed) ||
 			(record.failed && !include_failed) ||
 			(name && name[0] === "_")
 		) {
