@@ -1,8 +1,8 @@
-import peg from '../pPEG.mjs'
+import { compile } from "../pPEG.js";
 
-console.log("Arith operator expression example....")
+console.log("Arith operator expression example....");
 
-const arith = peg.compile(`
+const arith = compile(`
   exp = add 
   add = sub ('+' sub)*
   sub = mul ('-' mul)*
@@ -16,15 +16,11 @@ const arith = peg.compile(`
   _   = [ \t\n\r]*
 `);
 
-const tests = [
-    ` 1 + 2 * 3 `,
-    `x^2^3 - 1`
-];
+const tests = [` 1 + 2 * 3 `, `x^2^3 - 1`];
 
-for (let test of tests) {
-    const p = arith.parse(test);
-    if (p.ok) console.log(p.show_ptree()); //JSON.stringify(p.ptree));
-    else console.log(p.show_err());
+for (const test of tests) {
+	const p = arith.parse(test);
+	console.log(String(p)); // JSON.stringify(p.ptree());
 }
 
 // 1+2*3 ==> (+ 1 (* 2 3))

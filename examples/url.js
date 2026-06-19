@@ -1,8 +1,8 @@
-import peg from '../pPEG.mjs'
+import { compile } from "../pPEG.js";
 
 console.log("url grammar...");
 
-const uri = peg.compile(`
+const uri = compile(`
     # Equivalent to the regular expression for
     # well-formed URI's in RFC 3986.
     URI     = (scheme ':')? ('//' auth)? 
@@ -18,8 +18,7 @@ const test = "http://www.ics.uci.edu/pub/ietf/uri/#Related";
 
 const parse = uri.parse(test);
 
-if (parse.ok) console.log(parse.show_ptree()); //JSON.stringify(parse.ptree));
-else console.log(parse.show_err());
+console.log(String(parse)); // JSON.stringify(parse.ptree());
 
 /*
 url grammar...

@@ -1,4 +1,4 @@
-import peg from '../pPEG.mjs'
+import { compile } from "../pPEG.js";
 
 console.log("chat markup example...");
 
@@ -9,7 +9,7 @@ console.log("chat markup example...");
     pPEG could be simplified
 */
 
-const test = peg.compile(`
+const test = compile(`
     chat    = line+ eof
     line    = name command message nl
     message = (emoji / link / color / Mention / word / space)+
@@ -30,8 +30,7 @@ const test = peg.compile(`
 
 const p = test.parse("John says: Hello @michael this will work\n");
 
-if (p.ok) console.log(p.show_ptree()); // JSON.stringify(p.ptree));
-else console.log(p.show_err());
+console.log(String(p)); // JSON.stringify(p.ptree());
 
 /*
 chat markup example...

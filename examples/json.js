@@ -1,8 +1,8 @@
-import peg from '../pPEG.mjs';
+import { compile } from "../pPEG.js";
 
 console.log("json grammar...");
 
-const json = peg.compile(String.raw`
+const json = compile(String.raw`
     json   = _ value _
     value  =  Str / Arr / Obj / num / lit
     Obj    = '{' _ (memb (',' _ memb)*)? _ '}'
@@ -28,8 +28,7 @@ const p = json.parse(String.raw`
   }
 `);
 
-if (p.ok) console.log(p.show_ptree()); //(JSON.stringify(p.ptree));
-else console.log(p.show_err());
+console.log(String(p)); // JSON.stringify(p.ptree());
 
 /*
 json grammar...

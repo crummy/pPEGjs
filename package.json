@@ -3,21 +3,30 @@
 	"version": "0.1.4",
 	"description": "A portable Parser Expression Grammar.",
 	"main": "index.js",
+	"types": "index.d.ts",
 	"type": "module",
 	"directories": {
 		"example": "examples",
 		"test": "tests"
 	},
 	"scripts": {
-		"test": "node peg-play.mjs tests && node --test tests/*.test.mjs",
-		"test:output": "node --test tests/*.test.mjs",
-		"format": "biome format --write *.mjs"
+		"build:types": "tsc -p tsconfig.types.json",
+		"check": "tsc --noEmit",
+		"test": "node peg-play.js tests && node --test tests/*.test.js",
+		"test:output": "node --test tests/*.test.js",
+		"format": "biome format --write *.js examples/*.js tests/*.js",
+		"prebuild:types": "rm -f index.d.ts pPEG.d.ts"
 	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/crummy/pPEGjs.git"
 	},
-	"keywords": ["ppeg", "parser", "expression", "grammar"],
+	"keywords": [
+		"ppeg",
+		"parser",
+		"expression",
+		"grammar"
+	],
 	"author": "Peter Cashin",
 	"license": "MIT",
 	"bugs": {
@@ -25,6 +34,8 @@
 	},
 	"homepage": "https://github.com/pcanz/pPEGjs#readme",
 	"devDependencies": {
-		"@biomejs/biome": "1.9.4"
+		"@biomejs/biome": "1.9.4",
+		"@types/node": "^26.0.0",
+		"typescript": "^6.0.3"
 	}
 }

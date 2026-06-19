@@ -1,8 +1,8 @@
-import peg from '../pPEG.mjs'
+import { compile } from "../pPEG.js";
 
-console.log("date example ....")
+console.log("date example ....");
 
-const dg = peg.compile(`
+const dg = compile(`
     Date  = year '-' month '-' day
     year  = d d d d
     month = d d 
@@ -12,17 +12,15 @@ const dg = peg.compile(`
 
 const p = dg.parse("2021-04-05");
 
-if (p.ok) console.log(p.show_ptree());
-else console.log(p.show_err());
+console.log(String(p));
 
-const dt = peg.compile(`
+const dt = compile(`
     Date  = year '-' month '-' day
     year  = [0-9]*4
     month = [0-9]*1.. 
     day   = [0-9]*1..2
-`)
+`);
 
 const d = dt.parse("2021-04-05");
 
-if (d.ok) console.log(peg.show_tree(d.ptree)); //JSON.stringify(d.ptree));
-else console.log(d.show_err());
+console.log(String(d)); // JSON.stringify(d.ptree());

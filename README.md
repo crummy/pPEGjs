@@ -8,26 +8,26 @@ To see a demo try the [dingus] web-page.
 
 To develop your own pPEG grammar use the [peg-play] command line tool.
 
-The peg-play.mjs module is a small node.js command line tool to
+The peg-play.js module is a small node.js command line tool to
 compile and run files with a pPEG grammar and input text test(s).
 
-The play/ directory has some examples for peg-play.mjs to run.
+The play/ directory has some examples for peg-play.js to run.
 
 The examples/ directory has examples of how to use pPEG in JavaScript.
 
 This repo is an implementation of [pPEG] in JavaScript, for other languages see: [INDEX].
 
-To use pPEG the single file JavaScript module pPEG.mjs is all you need.
+To use pPEG the single file JavaScript module pPEG.js is all you need.
 It has no dependencies, it can be run in Node.js or in a browser.
 
 ##  Example
 
 ``` js
-    import peg from './pPEG.mjs'
+    import { compile } from './pPEG.js'
 
     // Equivalent to the regular expression for well-formed URI's in RFC 3986.
 
-    const pURI = peg.compile(`
+    const pURI = compile(`
         URI     = (scheme ':')? ('//' auth)? path ('?' query)? ('#' frag)?
         scheme  = ~[:/?#]+
         auth    = ~[/?#]*
@@ -36,21 +36,18 @@ It has no dependencies, it can be run in Node.js or in a browser.
         frag    = ~[ \t\n\r]*
     `);
 
-    if (!pURI.ok) throw "URI grammar error:\n"+pURI.show_err();
-
     const test = "http://www.ics.uci.edu/pub/ietf/uri/#Related";
 
     const uri = pURI.parse(test);
 
-    if (uri.ok) console.log(uri.show_ptree());
-    else console.log(uri.show_err());
+    console.log(String(uri));
 
     /*
-    uri.ptree =
+    uri.ptree() =
     ["URI",[["scheme","http"],["auth","www.ics.uci.edu"],["path","/pub/ietf/uri/"],
             ["frag","Related"]]]
 
-    uri.show_ptree() =>
+    String(uri) =>
     URI
     ├─scheme "http"
     ├─auth "www.ics.uci.edu"
@@ -61,34 +58,34 @@ It has no dependencies, it can be run in Node.js or in a browser.
 
 ##  API
 
-The `import` provides a `peg` object with a `compile` function which takes a string that defines your grammar.
+Import `compile` from `pPEG.js` and pass it a string that defines your grammar.
 
-The `compile` result is an parser object with a `parse` function:
+The `compile` result is a parser object with a `parse` function:
 
     {
       ok: boolean, true if there are no errors,
 
-      err: int, # an error code, 0=ok, 1=panic, ...
+      parse: (input: string, start?: number, end?: number) => Parse,
 
-      show_err: () => a full error report.
+      read: (input: string) => transformed result,
 
-      parse: (String) => parser object
+      errors: () => compile error text
     }
 
-The `parser.parse` function takes a string and generates a parse-tree object:
+The `parser.parse` function takes a string and returns a `Parse` object:
 
     {
       ok: boolean, true if there are no errors,
 
-      err: int, # an error code, 0=ok, 1=panic, ...
+      ptree: () => parse_tree object,
 
-      show_err: () => a full error report.
+      transform: () => transformed result,
 
-      ptree: parse_tree object,
+      print_tree: () => print the parse tree,
 
-      show_ptree: (fmt) => ptree pretty print string.
-                              # default ascii-art tree, 
-                              # fmt=true for json format.
+      print_trace: () => print the raw trace,
+
+      toString: () => parse tree or error report
     }
 
 The `ptree` parse tree type is JSON data, as defined in [pPEG].

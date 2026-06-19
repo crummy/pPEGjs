@@ -15,20 +15,20 @@ This makes it easy to play with a pPEG grammar.
 
 To give it a try run it with node.js:
 
-    > node peg-play.mjs play/date.txt
+    > node peg-play.js play/date.txt
 
 Or to print the parse tree in json format:
 
-    > node peg-play.mjs -j play/date.txt
+    > node peg-play.js -j play/date.txt
 
-This assumes peg-play.mjs is in the same directory as pPEG.mjs,
+This assumes peg-play.js is in the same directory as pPEG.js,
 if not then read how to install as a command below.
 
 Multiple grammars with tests can be combined into a single file.
 
 Also used for regression testing of multiple files in a tests directory.
 
-    > node peg-play.mjs tests
+    > node peg-play.js tests
 
 ## Test format
 
@@ -52,35 +52,43 @@ grammar block is skipped over as comments in the test file.
 
 ##  To install as a command
 
-1. Edit this peg-play.mjs file to import your local copy of pPEG.mjs 
+1. Edit this peg-play.js file to import your local copy of pPEG.js 
 
-        import peg from './pPEG.mjs' // <== EDIT.ME to relocate
+        import { compile } from './pPEG.js' // <== EDIT.ME to relocate
 
 2. This command line tool can be used with node:
 
-        > node peg-play.mjs my-test.txt
+        > node peg-play.js my-test.txt
 
-    But this requires the peg-play.mjs file to be in the same directory as
+    But this requires the peg-play.js file to be in the same directory as
     the my-test.txt file(s), or the use of absolute path name(s).
 
-3. Optional: to make peg-play.mjs into a command that can be used directly.
+3. Optional: to make peg-play.js into a command that can be used directly.
 
-    Copy this file into: <your-command-path>/peg-play.mjs
+    Copy this file into: <your-command-path>/peg-play.js
 
-    For example: /usr/local/bin/peg-play.mjs (or similar on your $PATH)
+    For example: /usr/local/bin/peg-play.js (or similar on your $PATH)
 
-        > chmod +x /usr/local/bin/peg-play.mjs
+        > chmod +x /usr/local/bin/peg-play.js
     
     Usage:
 
-        > peg-play.mjs my-test.txt
+        > peg-play.js my-test.txt
 
 `; // doco
 
-import peg from "./pPEG.mjs"; // <== EDIT.ME to relocate
+import { compile } from "./pPEG.js"; // <== EDIT.ME to relocate
 
 import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import process from "node:process";
+
+/** @type {import("./pPEG.js").ExtensionMap} */
+const testExtensions = {
+	"?": dumpTrace,
+	at: sameMatch,
+	eq: sameMatch,
+	infix: () => true,
+};
 
 // check command line args ----------------------------
 
@@ -146,12 +154,12 @@ for (
  * @param {string} file
  * @param {boolean} json
  * @param {boolean} silent
- * @return {boolean}
+ * @returns {void}
  */
 function test_file(file, json, silent = false) {
 	if (!file.endsWith(".txt")) {
 		say(`**** Skip '${file}' this is not a .txt file...`);
-		return false;
+		return;
 	}
 	let f1 = readFileSync(file, "utf8");
 
@@ -186,11 +194,12 @@ function test_file(file, json, silent = false) {
 
 		say(px); // pPEG grammar text
 
-		const pp = peg.compile(ps);
-
-		if (!pp.ok) {
+		let pp;
+		try {
+			pp = compile(ps, {}, testExtensions);
+		} catch (error) {
 			// bad grammar
-			say(peg.show_err(pp.error));
+			say(String(error));
 			say("********************* grammar failed, skip tests....");
 			peg_err += peg_not ? 0 : 1; // don't count if expected to fail
 			continue;
@@ -221,12 +230,20 @@ function test_file(file, json, silent = false) {
 			} else {
 				say(">>>>");
 			}
-			const tp = pp.parse(s);
+			let tp;
+			try {
+				tp = pp.parse(s);
+			} catch (error) {
+				say(String(error));
+				err += neg ? 0 : 1;
+				ok += neg ? 1 : 0;
+				continue;
+			}
 			if (tp.ok) {
-				say(peg.show_tree(tp.ptree));
+				say(String(tp));
 			} else {
 				// parse failed ...
-				say(peg.show_err(tp.error));
+				say(String(tp));
 			}
 			if ((tp.ok && !neg) || (!tp.ok && neg)) {
 				ok += 1;
@@ -253,15 +270,45 @@ function test_file(file, json, silent = false) {
 		failure = 1;
 	}
 
+	/** @param {string} msg */
 	function say(msg) {
 		if (!silent) console.log(msg);
 	}
 
+	/** @param {string} str */
 	function strip_leading_comments(str) {
 		if (str === "") return str;
 		const rx = str.match(/^((?:[ \t\n\r]*#[^\n\r]*[\n\r]*)*)[ \t\n\r]*(.*)/s);
-		return rx[2];
+		return rx?.[2] ?? "";
 	}
 } // test_file
+
+/**
+ * @param {import("./pPEG.js").Parse} parse
+ * @param {string[]} args
+ */
+function sameMatch(parse, args) {
+	const name = args[1];
+	const id = parse.code.names.indexOf(name);
+	if (id < 0) throw new Error(`<${args.join(" ")}> undefined rule: ${name}`);
+
+	let prior = "";
+	for (let i = parse.trace.length - 1; i >= 0; i--) {
+		const node = parse.trace[i];
+		if (node.fault() || node.idx() !== id) continue;
+		prior = parse.input.slice(node.start, node.end);
+		break;
+	}
+	if (prior === "") return true;
+	if (!parse.input.startsWith(prior, parse.pos)) return false;
+	parse.pos += prior.length;
+	return true;
+}
+
+/** @param {import("./pPEG.js").Parse} parse */
+function dumpTrace(parse) {
+	parse.print_trace();
+	return true;
+}
 
 process.exit(failure ? 1 : 0);
