@@ -71,8 +71,7 @@ x = [a-z]`);
 	});
 
 	describe("Malformed JSON", () => {
-		test("failed root trace spans as far as the failed parse progressed", () => {
-			const compiled = compileGrammar(String.raw`
+		const json = String.raw`
 json   = _ value _
 value  =  Str / Arr / Obj / num / lit
 Obj    = '{'_ (memb (_','_ memb)*)? _'}'
@@ -86,7 +85,10 @@ _int   = '-'? ([1-9] [0-9]* / '0')
 _frac  = '.' [0-9]+
 _exp   = [eE] [+-]? [0-9]+
 lit    = 'true' / 'false' / 'null'
-_      = [ \t\n\r]*`);
+_      = [ \t\n\r]*`
+
+		test("failed root trace spans as far as the failed parse progressed", () => {
+			const compiled = compileGrammar(json);
 
 			const result = compiled.parse("{a}");
 			assert.equal(result.ok, false);
@@ -105,6 +107,16 @@ _      = [ \t\n\r]*`);
 
 			assert.deepEqual(result.ptree(), ["lit", ""]);
 		});
+
+		test("ptree shows correct root", () => {
+			const compiled = compileGrammar(json)
+			const result = compiled.parse("{}")
+
+			assert.ok(result.ok)
+
+			assert.equal(result.ptree()[0], "Obj")
+			assert.equal(result.code.names[result.trace[0].id], "json")
+		})
 	});
 });
 
