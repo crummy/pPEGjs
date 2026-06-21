@@ -1550,6 +1550,7 @@ function transform_fn(p, name) {
 
 // -- peg_grammar ptree -- bootstrap generated ---------------------------
 
+/** @type {PtreeNode} */
 // biome-ignore format: readability
 const peg_ptree = ["Peg", [
 	["rule", [["id", "Peg"], ["def", "="], ["seq", [["id", "_"], ["rep", [["id", "rule"], ["sfx", "+"]]]]]]]  ,
