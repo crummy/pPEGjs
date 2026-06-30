@@ -28,7 +28,7 @@ const p = json.parse(String.raw`
   }
 `);
 
-console.log(String(p)); // JSON.stringify(p.ptree());
+console.log(JSON.stringify(p.ptree()));
 
 /*
 json grammar...

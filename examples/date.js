@@ -12,7 +12,7 @@ const dg = compile(`
 
 const p = dg.parse("2021-04-05");
 
-console.log(String(p));
+console.log(JSON.stringify(p.ptree()));
 
 const dt = compile(`
     Date  = year '-' month '-' day
@@ -23,4 +23,4 @@ const dt = compile(`
 
 const d = dt.parse("2021-04-05");
 
-console.log(String(d)); // JSON.stringify(d.ptree());
+console.log(JSON.stringify(d.ptree()));

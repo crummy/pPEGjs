@@ -307,8 +307,117 @@ function sameMatch(parse, args) {
 
 /** @param {import("./pPEG.js").Parse} parse */
 function dumpTrace(parse) {
-	parse.print_trace();
+	console.log("   Span    Trace...");
+	let pos = 0;
+	let i = 0;
+	while (i < parse.trace.length) {
+		const start = parse.trace[i].start;
+		const end = parse.trace[i].end;
+		let depth = parse.trace[i].depth;
+		const nextDepth = traceDepth(parse, i + 1);
+		if (pos < start) {
+			const value = formatSpan(parse.input, pos, start);
+			console.log(
+				`${String(pos).padStart(4)}..${String(start).padEnd(4)} ${indentBars(depth)}${value}`,
+			);
+			pos = start;
+		}
+		dumpTraceNode(parse, i, start, end, depth);
+		if (pos < end && depth >= nextDepth) pos = end;
+		while (depth > nextDepth) {
+			const parent = traceParentOf(parse, i, depth);
+			const parentEnd = parse.trace[parent].end;
+			if (pos < parentEnd) {
+				const value = formatSpan(parse.input, pos, parentEnd);
+				console.log(
+					`${String(pos).padStart(4)}..${String(parentEnd).padEnd(4)} ${indentBars(depth)}${value}`,
+				);
+				pos = parentEnd;
+			}
+			depth--;
+		}
+		i++;
+	}
+	const eot = parse.end;
+	if (pos < eot) {
+		const maxNode = parse.trace[parse.max_trace];
+		const depth = maxNode.depth;
+		const value = `\x1b[1;41m!${formatSpan(parse.input, pos, eot)}\x1b[0m`;
+		console.log(
+			`${String(pos).padStart(4)}..${String(eot).padEnd(4)} ${indentBars(depth)}${value}`,
+		);
+	}
 	return true;
+}
+
+/**
+ * @param {import("./pPEG.js").Parse} parse
+ * @param {number} i
+ * @param {number} start
+ * @param {number} end
+ * @param {number} depth
+ */
+function dumpTraceNode(parse, i, start, end, depth) {
+	const FAIL = 0x2000;
+	const DROP = 0x1000;
+	const ID_VAL = 0x0fff;
+	const id = parse.trace[i].id;
+	let name;
+	if (id & FAIL) {
+		if (start === end) return;
+		name = "\x1b[1;31m!" + parse.code.names[id & ID_VAL] + "\x1b[0m";
+	} else if (id & DROP) {
+		name = "\x1b[1;31m-" + parse.code.names[id & ID_VAL] + "\x1b[0m";
+	} else {
+		name = parse.code.names[id];
+	}
+	let value = formatSpan(parse.input, start, end);
+	if (i + 1 < parse.trace.length && parse.trace[i + 1].depth > depth) {
+		value = "\x1b[2;38;5;253m" + value + "\x1b[0m";
+	}
+	console.log(
+		`${String(start).padStart(4)}..${String(end).padEnd(4)} ${indentBars(depth)}${name} ${value}`,
+	);
+}
+
+/**
+ * @param {string} input
+ * @param {number} start
+ * @param {number} end
+ */
+function formatSpan(input, start, end) {
+	if (end - start < 50) return JSON.stringify(input.slice(start, end));
+	return (
+		JSON.stringify(input.slice(start, start + 30)) +
+		" ... " +
+		JSON.stringify(input.slice(start + 30, end))
+	);
+}
+
+/** @param {number} size */
+function indentBars(size) {
+	return "\x1b[38;5;253m" + "│ ".repeat(size) + "\x1b[0m";
+}
+
+/**
+ * @param {import("./pPEG.js").Parse} parse
+ * @param {number} i
+ * @param {number} depth
+ */
+function traceParentOf(parse, i, depth) {
+	while (i > 0) {
+		i--;
+		if (parse.trace[i].depth < depth) return i;
+	}
+	return 0;
+}
+
+/**
+ * @param {import("./pPEG.js").Parse} parse
+ * @param {number} i
+ */
+function traceDepth(parse, i) {
+	return i < parse.trace.length ? parse.trace[i].depth : 0;
 }
 
 process.exit(failure ? 1 : 0);

@@ -25,7 +25,7 @@ line 2
 
 const p = block.parse(test);
 
-console.log(String(p)); // JSON.stringify(p.ptree());
+console.log(JSON.stringify(p.ptree()));
 
 /**
  * @param {import("../pPEG.js").Parse} parse

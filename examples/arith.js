@@ -20,7 +20,7 @@ const tests = [` 1 + 2 * 3 `, `x^2^3 - 1`];
 
 for (const test of tests) {
 	const p = arith.parse(test);
-	console.log(String(p)); // JSON.stringify(p.ptree());
+	console.log(JSON.stringify(p.ptree()));
 }
 
 // 1+2*3 ==> (+ 1 (* 2 3))

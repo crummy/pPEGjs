@@ -18,7 +18,7 @@ const test = "http://www.ics.uci.edu/pub/ietf/uri/#Related";
 
 const parse = uri.parse(test);
 
-console.log(String(parse)); // JSON.stringify(parse.ptree());
+console.log(JSON.stringify(parse.ptree()));
 
 /*
 url grammar...

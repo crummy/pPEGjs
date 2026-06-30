@@ -30,7 +30,7 @@ const test = compile(`
 
 const p = test.parse("John says: Hello @michael this will work\n");
 
-console.log(String(p)); // JSON.stringify(p.ptree());
+console.log(JSON.stringify(p.ptree()));
 
 /*
 chat markup example...

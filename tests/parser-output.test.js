@@ -232,4 +232,48 @@ _   = [ \\t\\n\\r]`);
 			],
 		});
 	});
+
+	test("should expose failed parse details as an object", () => {
+		const result = dateGrammar.parse("2021-02-0d3");
+
+		assert.deepEqual(result.errors(), {
+			kind: "parse",
+			offset: 9,
+			end: 11,
+			location: {
+				offset: 9,
+				line: 1,
+				column: 10,
+				lineStart: 0,
+				lineEnd: 11,
+				lineText: "2021-02-0d3",
+			},
+			fellShort: false,
+			rule: "day",
+			expected: {
+				kind: "expression",
+				expression: ["class", "[0-9]"],
+			},
+		});
+		assert.deepEqual(result.error(), result.errors());
+	});
+
+	test("should expose trailing input as a structured parse error", () => {
+		const result = dateGrammar.parse("2021-02-033");
+
+		assert.deepEqual(result.errors(), {
+			kind: "parse",
+			offset: 10,
+			end: 11,
+			location: {
+				offset: 10,
+				line: 1,
+				column: 11,
+				lineStart: 0,
+				lineEnd: 11,
+				lineText: "2021-02-033",
+			},
+			fellShort: true,
+		});
+	});
 });

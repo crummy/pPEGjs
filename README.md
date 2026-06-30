@@ -40,20 +40,10 @@ It has no dependencies, it can be run in Node.js or in a browser.
 
     const uri = pURI.parse(test);
 
-    console.log(String(uri));
+    console.log(JSON.stringify(uri.ptree()));
 
-    /*
-    uri.ptree() =
-    ["URI",[["scheme","http"],["auth","www.ics.uci.edu"],["path","/pub/ietf/uri/"],
-            ["frag","Related"]]]
-
-    String(uri) =>
-    URI
-    ├─scheme "http"
-    ├─auth "www.ics.uci.edu"
-    ├─path "/pub/ietf/uri/"
-    └─frag "Related"
-    */
+    // ["URI",[["scheme","http"],["auth","www.ics.uci.edu"],["path","/pub/ietf/uri/"],
+    //         ["frag","Related"]]]
 ```
 
 ##  API
@@ -69,7 +59,7 @@ The `compile` result is a parser object with a `parse` function:
 
       read: (input: string) => transformed result,
 
-      errors: () => compile error text
+      errors: () => compile error object
     }
 
 The `parser.parse` function takes a string and returns a `Parse` object:
@@ -81,11 +71,7 @@ The `parser.parse` function takes a string and returns a `Parse` object:
 
       transform: () => transformed result,
 
-      print_tree: () => print the parse tree,
-
-      print_trace: () => print the raw trace,
-
-      toString: () => parse tree or error report
+      errors: () => parse error object
     }
 
 The `ptree` parse tree type is JSON data, as defined in [pPEG].

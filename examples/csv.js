@@ -69,7 +69,7 @@ a3,b3,c3
 
 const p = csv.parse(test);
 
-console.log(String(p)); // JSON.stringify(p.ptree());
+console.log(JSON.stringify(p.ptree()));
 
 /*
 CSV example....

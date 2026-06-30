@@ -82,8 +82,10 @@ export class Parse {
     empty_alt: [RuntimeExpr[], number] | null;
     /** @type {Record<string, unknown>} */
     extra_state: Record<string, unknown>;
-    /** @returns {string} */
-    toString(): string;
+    /** @returns {ParseError | null} */
+    error(): ParseError | null;
+    /** @returns {ParseError | null} */
+    errors(): ParseError | null;
     /** @param {number} i @returns {string} */
     name(i: number): string;
     /** @param {number} i @returns {string} */
@@ -94,10 +96,6 @@ export class Parse {
     ptree(): PtreeNode | [];
     /** @returns {TransformResult} */
     transform(): TransformResult;
-    /** @returns {void} */
-    print_trace(): void;
-    /** @returns {void} */
-    print_tree(): void;
     /** @param {number} id @returns {boolean} */
     run(id: number): boolean;
     /**
@@ -140,8 +138,10 @@ export class Code {
     toString(): string;
     /** @param {string} input @param {number} [start=-1] @param {number} [end=-1] @returns {Parse} */
     parse(input: string, start?: number, end?: number): Parse;
-    /** @returns {string} */
-    errors(): string;
+    /** @returns {CodeError | null} */
+    error(): CodeError | null;
+    /** @returns {CodeError | null} */
+    errors(): CodeError | null;
     /** @param {number} id @returns {string} */
     id_name(id: number): string;
     /** @param {string} input @returns {TransformResult} */
@@ -187,6 +187,73 @@ export type TransformFn = (value: unknown) => unknown;
 export type ExtensionFn = (parse: Parse, args: string[]) => boolean;
 export type TransformMap = Record<string, TransformFn>;
 export type ExtensionMap = Record<string, ExtensionFn>;
+export type ErrorLocation = {
+    /**
+     * Zero-based input offset of the error.
+     */
+    offset: number;
+    /**
+     * One-based line number.
+     */
+    line: number;
+    /**
+     * One-based column number.
+     */
+    column: number;
+    /**
+     * Zero-based offset where the line begins.
+     */
+    lineStart: number;
+    /**
+     * Zero-based offset where the line ends.
+     */
+    lineEnd: number;
+    /**
+     * Source text for the error line.
+     */
+    lineText: string;
+    /**
+     * One-based previous line number, when present.
+     */
+    previousLine?: number | undefined;
+    /**
+     * Source text for the previous line, when present.
+     */
+    previousLineText?: string | undefined;
+};
+export type ExpectedLiteral = {
+    kind: "literal";
+    value: string;
+    caseInsensitive: boolean;
+};
+export type ExpectedRule = {
+    kind: "rule";
+    name: string;
+};
+export type ExpectedExpression = {
+    kind: "expression";
+    expression: RuntimeExpr;
+};
+export type Expected = ExpectedLiteral | ExpectedRule | ExpectedExpression;
+export type EmptyAlternative = {
+    alternatives: RuntimeExpr[];
+    index: number;
+    rule?: string | undefined;
+};
+export type ParseError = {
+    kind: "parse";
+    offset: number;
+    end: number;
+    location: ErrorLocation;
+    fellShort: boolean;
+    rule?: string | undefined;
+    expected?: Expected | undefined;
+    emptyAlternative?: EmptyAlternative | undefined;
+};
+export type CodeError = {
+    kind: "grammar";
+    messages: string[];
+};
 export type CodeOptions = {
     /**
      * Bootstrap parse tree used before the PEG grammar can parse itself.

@@ -48,6 +48,64 @@
 /** @typedef {Record<string, ExtensionFn>} ExtensionMap */
 
 /**
+ * @typedef {object} ErrorLocation
+ * @property {number} offset Zero-based input offset of the error.
+ * @property {number} line One-based line number.
+ * @property {number} column One-based column number.
+ * @property {number} lineStart Zero-based offset where the line begins.
+ * @property {number} lineEnd Zero-based offset where the line ends.
+ * @property {string} lineText Source text for the error line.
+ * @property {number} [previousLine] One-based previous line number, when present.
+ * @property {string} [previousLineText] Source text for the previous line, when present.
+ */
+
+/**
+ * @typedef {object} ExpectedLiteral
+ * @property {"literal"} kind
+ * @property {string} value
+ * @property {boolean} caseInsensitive
+ */
+
+/**
+ * @typedef {object} ExpectedRule
+ * @property {"rule"} kind
+ * @property {string} name
+ */
+
+/**
+ * @typedef {object} ExpectedExpression
+ * @property {"expression"} kind
+ * @property {RuntimeExpr} expression
+ */
+
+/** @typedef {ExpectedLiteral | ExpectedRule | ExpectedExpression} Expected */
+
+/**
+ * @typedef {object} EmptyAlternative
+ * @property {RuntimeExpr[]} alternatives
+ * @property {number} index
+ * @property {string} [rule]
+ */
+
+/**
+ * @typedef {object} ParseError
+ * @property {"parse"} kind
+ * @property {number} offset
+ * @property {number} end
+ * @property {ErrorLocation} location
+ * @property {boolean} fellShort
+ * @property {string} [rule]
+ * @property {Expected} [expected]
+ * @property {EmptyAlternative} [emptyAlternative]
+ */
+
+/**
+ * @typedef {object} CodeError
+ * @property {"grammar"} kind
+ * @property {string[]} messages
+ */
+
+/**
  * @typedef {object} CodeOptions
  * @property {PtreeNode | null} [boot] Bootstrap parse tree used before the PEG grammar can parse itself.
  * @property {TransformMap} [transforms] Transform callbacks keyed by rule name, or `rule:` for named wrapping.
@@ -198,9 +256,14 @@ export class Parse {
 		this.extra_state = {};
 	}
 
-	/** @returns {string} */
-	toString() {
-		return this.ok ? show_tree(this) : err_report(this);
+	/** @returns {ParseError | null} */
+	error() {
+		return parse_error(this);
+	}
+
+	/** @returns {ParseError | null} */
+	errors() {
+		return this.error();
 	}
 
 	/** @param {number} i @returns {string} */
@@ -235,15 +298,6 @@ export class Parse {
 		const [result] = transformer(this, 0, 0);
 		if (result.length === 1) return [true, result[0]];
 		return [true, result];
-	}
-
-	/** @returns {void} */
-	print_trace() {
-		dump_trace(this);
-	}
-	/** @returns {void} */
-	print_tree() {
-		dump_tree(this);
 	}
 
 	/** @param {number} id @returns {boolean} */
@@ -750,242 +804,95 @@ function p_tree(parse, i, d) {
 	return [arr, i];
 }
 
-// -- ptree line diagram -------------------------------------------------
+// -- Parse error data ----------------------------------------------------
 
 /**
- * Render a successful parse tree as an indented line diagram.
+ * Return a structured parse error for a failed parse.
  *
  * @param {Parse} parse
- * @returns {string}
+ * @returns {ParseError | null}
  */
-function show_tree(parse) {
-	const lines = [];
-	const tree = /** @type {Node[]} */ (parse.tree);
-	for (let i = 0; i < tree.length; i++) {
-		const value = parse.leaf(i) ? ` ${JSON.stringify(parse.text(i))}` : "";
-		lines.push(`${indent_bars(tree[i].depth)}${parse.name(i)}${value}`);
+function parse_error(parse) {
+	if (parse.ok) return null;
+	const offset = Math.max(parse.pos, parse.max_pos);
+	const node = parse.trace[parse.max_trace];
+	/** @type {ParseError} */
+	const error = {
+		kind: /** @type {"parse"} */ ("parse"),
+		offset,
+		end: parse.end,
+		location: error_location(parse, offset),
+		fellShort: parse.fell_short,
+	};
+	if (node && !parse.fell_short) {
+		error.rule = parse.code.id_name(node.idx());
 	}
-	return lines.join("\n");
-}
-
-// -- print debug dump of trace nodes ------------------------------------
-
-/**
- * Print the raw trace with failure/backtrack markers.
- *
- * @param {Parse} parse
- * @returns {void}
- */
-function dump_trace(parse) {
-	console.log("   Span    Trace...");
-	let pos = 0; // input index last displayed
-	let i = 0; // trace node index
-	while (i < parse.trace.length) {
-		const start = parse.trace[i].start;
-		const end = parse.trace[i].end;
-		let depth = parse.trace[i].depth;
-		const next_depth = depth_of(parse, i + 1);
-		if (pos < start) {
-			const value = format_span(parse.input, pos, start);
-			console.log(
-				`${String(pos).padStart(4)}..${String(start).padEnd(4)} ${indent_bars(depth)}${value}`,
-			);
-			pos = start;
-		}
-		dump_node(parse, i, start, end, depth);
-		if (pos < end && depth >= next_depth) pos = end;
-		while (depth > next_depth) {
-			// fill in text gap
-			const parent = parent_of(parse, i, depth);
-			const parent_end = parse.trace[parent].end;
-			if (pos < parent_end) {
-				const value = format_span(parse.input, pos, parent_end);
-				console.log(
-					`${String(pos).padStart(4)}..${String(parent_end).padEnd(4)} ${indent_bars(depth)}${value}`,
-				);
-				pos = parent_end;
-			}
-			depth--;
-		}
-		i++;
-	}
-	const eot = parse.end;
-	if (pos < eot) {
-		// show end text after pos: !'...end-text...'
-		const max_node = parse.trace[parse.max_trace];
-		const depth = max_node.depth;
-		const value = `\x1b[1;41m!${format_span(parse.input, pos, eot)}\x1b[0m`;
-		console.log(
-			`${String(pos).padStart(4)}..${String(eot).padEnd(4)} ${indent_bars(depth)}${value}`,
-		);
-	}
+	const expected = expected_error(parse);
+	if (expected) error.expected = expected;
+	const emptyAlternative = empty_alternative_error(parse);
+	if (emptyAlternative) error.emptyAlternative = emptyAlternative;
+	return error;
 }
 
 /**
- * Print one raw trace node.
+ * Return source-location details for an input offset.
  *
  * @param {Parse} parse
- * @param {number} i Trace index.
- * @param {number} start Inclusive input offset.
- * @param {number} end Exclusive input offset.
- * @param {number} depth Trace depth.
- * @returns {void}
+ * @param {number} offset
+ * @returns {ErrorLocation}
  */
-function dump_node(parse, i, start, end, depth) {
-	const id = parse.trace[i].id;
-	let name;
-	if (id & FAIL) {
-		if (start === end) return;
-		name = "\x1b[1;31m!" + parse.code.names[id & ID_VAL] + "\x1b[0m";
-	} else if (id & DROP) {
-		name = "\x1b[1;31m-" + parse.code.names[id & ID_VAL] + "\x1b[0m";
-	} else {
-		name = parse.code.names[id];
-	}
-	let value = format_span(parse.input, start, end);
-	if (i + 1 < parse.trace.length && parse.trace[i + 1].depth > depth) {
-		value = "\x1b[2;38;5;253m" + value + "\x1b[0m";
-	}
-	console.log(
-		`${String(start).padStart(4)}..${String(end).padEnd(4)} ${indent_bars(depth)}${name} ${value}`,
-	);
-}
-
-/**
- * Format a matched input span for debug/error output.
- *
- * @param {string} input
- * @param {number} start Inclusive input offset.
- * @param {number} end Exclusive input offset.
- * @returns {string}
- */
-function format_span(input, start, end) {
-	if (end - start < 50) return JSON.stringify(input.slice(start, end));
-	return (
-		JSON.stringify(input.slice(start, start + 30)) +
-		" ... " +
-		JSON.stringify(input.slice(start + 30, end))
-	);
-}
-
-/**
- * Find the nearest preceding trace node shallower than depth `d`.
- *
- * @param {Parse} parse
- * @param {number} i Trace index to walk backward from.
- * @param {number} d Current depth.
- * @returns {number}
- */
-function parent_of(parse, i, d) {
-	while (i > 0) {
-		i--;
-		if (parse.trace[i].depth < d) return i;
-	}
-	return 0;
-}
-
-/**
- * Return a trace node depth, or 0 past the end of the trace.
- *
- * @param {Parse} parse
- * @param {number} i Trace index.
- * @returns {number}
- */
-function depth_of(parse, i) {
-	return i < parse.trace.length ? parse.trace[i].depth : 0;
-}
-
-// -- dump tree ----------------------------------------------------------
-
-/**
- * Print the pruned parse tree with any remaining unparsed input highlighted.
- *
- * @param {Parse} parse
- * @returns {void}
- */
-function dump_tree(parse) {
-	const tree = /** @type {Node[]} */ (parse.tree);
-	for (let i = 0; i < tree.length; i++) dump_tree_node(parse, i);
-	// Print any remaining unparsed input.
-	const eot = parse.end;
-	const pos = Math.max(parse.pos, parse.max_pos);
-	if (pos < eot) {
-		let depth = 0;
-		if (parse.max_tree < tree.length) {
-			const max_node = tree[parse.max_tree];
-			depth = max_node.depth;
-		}
-		const value = format_span(parse.input, pos, eot);
-		console.log(`${indent_bars(depth)}\x1b[1;41m${value.slice(1, -1)}\x1b[0m`);
-	}
-}
-
-/**
- * Print one pruned parse tree node.
- *
- * @param {Parse} parse
- * @param {number} i Parse tree index.
- * @returns {void}
- */
-function dump_tree_node(parse, i) {
-	const tree = /** @type {Node[]} */ (parse.tree);
-	const node = tree[i];
-	const id = node.id;
-	if (id & FAULT && node.start === node.end) return;
-	let name;
-	if (id & FAIL) {
-		name = "\x1b[1;31m!" + parse.code.names[id & ID_VAL] + "\x1b[0m";
-	} else if (id & DROP) {
-		name = "\x1b[1;31m-" + parse.code.names[id & ID_VAL] + "\x1b[0m";
-	} else {
-		name = parse.code.names[id];
-	}
-	name = parse.code.names[id & ID_VAL];
-	const value =
-		i + 1 === tree.length || tree[i + 1].depth <= node.depth
-			? format_span(parse.input, node.start, node.end)
-			: "";
-	console.log(`${indent_bars(node.depth)}${name} ${value}`);
-}
-
-// -- Parse error reporting ----------------------------------------------
-
-/**
- * Render a caret diagnostic at the furthest parse position.
- *
- * @param {Parse} parse
- * @param {string} [info=""] Additional diagnostic text after the caret.
- * @returns {string}
- */
-function show_pos(parse, info = "") {
-	const pos = Math.max(parse.pos, parse.max_pos);
-	const sol = line_start(parse, pos - 1);
-	const eol = line_end(parse, pos);
-	const ln = line_number(parse.input, sol);
-	const text = clean_chars(parse.input.slice(sol + 1, pos));
-	const left = `line ${ln} | ${text}`;
-	let prior = ""; // show previous line
+function error_location(parse, offset) {
+	const sol = line_start(parse, offset - 1);
+	const eol = line_end(parse, offset);
+	/** @type {ErrorLocation} */
+	const location = {
+		offset,
+		line: line_number(parse.input, sol),
+		column: offset - sol,
+		lineStart: sol + 1,
+		lineEnd: eol,
+		lineText: parse.input.slice(sol + 1, eol),
+	};
 	if (sol > 0) {
-		const sol1 = line_start(parse, sol - 1);
-		const text2 = clean_chars(parse.input.slice(sol1 + 1, sol));
-		prior = `line ${ln - 1} | ${text2}\n`;
+		const priorStart = line_start(parse, sol - 1);
+		location.previousLine = location.line - 1;
+		location.previousLineText = parse.input.slice(priorStart + 1, sol);
 	}
-	if (pos === parse.end) {
-		return `${prior}${left}\n${" ".repeat(left.length)}^ ${info}`;
-	}
-	return `${prior}${left}${parse.input.slice(pos, eol)}\n${" ".repeat(left.length)}^ ${info}`;
+	return location;
 }
 
 /**
- * Replace control characters with spaces for stable caret positioning.
+ * Return the expected expression in a stable object form.
  *
- * @param {string} txt
- * @returns {string}
+ * @param {Parse} parse
+ * @returns {Expected | null}
  */
-function clean_chars(txt) {
-	const cs = []; // tabs or ctl can throw off pos length count
-	for (const c of txt) cs.push(c < " " ? " " : c);
-	return cs.join("");
+function expected_error(parse) {
+	const op = parse.expected;
+	if (!op) return null;
+	if (op[0] === "quote") {
+		return { kind: "literal", value: op[1], caseInsensitive: op[2] };
+	}
+	if (op[0] === "id") {
+		return { kind: "rule", name: parse.code.names[op[1]] };
+	}
+	return { kind: "expression", expression: op };
+}
+
+/**
+ * Return empty-alternative details in a stable object form.
+ *
+ * @param {Parse} parse
+ * @returns {EmptyAlternative | null}
+ */
+function empty_alternative_error(parse) {
+	if (parse.empty_alt === null) return null;
+	const [alternatives, index] = parse.empty_alt;
+	const opt = alternatives[index];
+	/** @type {EmptyAlternative} */
+	const error = { alternatives, index };
+	if (opt[0] === "id") error.rule = parse.code.names[opt[1]];
+	return error;
 }
 
 /**
@@ -1013,16 +920,6 @@ function line_end(parse, eol) {
 }
 
 /**
- * Build a colored indentation prefix for tree diagrams.
- *
- * @param {number} size
- * @returns {string}
- */
-function indent_bars(size) {
-	return "\x1b[38;5;253m" + "│ ".repeat(size) + "\x1b[0m";
-}
-
-/**
  * Compute a 1-based line number for an input offset.
  *
  * @param {string} input
@@ -1039,97 +936,6 @@ function line_number(input, i) {
 		i--;
 	}
 	return n;
-}
-
-/**
- * Explain the rule responsible for the furthest parse failure.
- *
- * @param {Parse} parse
- * @returns {string}
- */
-function rule_info(parse) {
-	// parse.fell_short means parsing succeeded before unexpected trailing input.
-	if (parse.fell_short)
-		return "unexpected input, parse ok on input before this";
-	let note = " failed";
-	if (parse.expected) {
-		note = ` failed, expected: ${code_show(parse, parse.expected)}`;
-	}
-	return note;
-}
-
-/**
- * Convert a runtime expression to user-facing expected-token text.
- *
- * @param {Parse} parse
- * @param {RuntimeExpr} op
- * @returns {string | RuntimeExpr}
- */
-function code_show(parse, op) {
-	if (op[0] === "quote") {
-		const quo = "'" + op[1] + "'";
-		return op[2] ? quo + "i" : quo;
-	}
-	if (op[0] === "id") return parse.code.names[op[1]];
-	return op;
-}
-
-/**
- * Map a compiled rule name back to its grammar source line when available.
- *
- * @param {Parse} parse
- * @param {string} name
- * @param {string} [note=""]
- * @returns {string}
- */
-function src_map(parse, name, note = "") {
-	const peg_parse = parse.code.peg_parse;
-	if (!peg_parse || !peg_parse.tree) return name + note + " in boot-code...";
-	const lines = [name + note];
-	// Show grammar rule.
-	for (let i = 0; i < peg_parse.tree.length - 1; i++) {
-		if (peg_parse.name(i) !== "rule") continue;
-		if (peg_parse.text(i + 1) === name) {
-			lines.push(peg_parse.text(i).trim());
-			break;
-		}
-	}
-	return lines.join("\n");
-}
-
-/**
- * Report a suspicious empty alternative match, if one was observed.
- *
- * @param {Parse} parse
- * @returns {string}
- */
-function empty_alt_report(parse) {
-	if (parse.empty_alt === null) return "";
-	const [list, i] = parse.empty_alt;
-	const opt = list[i];
-	const msg = `\n*** in: ${JSON.stringify(list)}`;
-	if (opt[0] === "id") {
-		return `${msg}\n    alternative '${parse.name(opt[1])}' was an empty '' match!`;
-	}
-	return `${msg}\n    alternative ${i} was an empty '' match!`;
-}
-
-/**
- * Render a complete grammar or parse failure report.
- *
- * @param {Parse} parse
- * @returns {string}
- */
-function err_report(parse) {
-	const at_pos = `at: ${Math.max(parse.pos, parse.max_pos)} of: ${parse.end}`;
-	if (parse.code.err.length > 0) {
-		const title = `*** grammar failed ${at_pos}`;
-		const errs = parse.code.err.join("\n");
-		return `${title}\n${errs}\n${show_pos(parse)}`;
-	}
-	parse.print_tree();
-	const title = `*** parse failed ${at_pos}` + empty_alt_report(parse);
-	return `${title}\n${show_pos(parse, rule_info(parse))}`;
 }
 
 // == pPEG ptree is compiled into a Code object with instructions for parser ======================
@@ -1176,7 +982,6 @@ export class Code {
 
 	/** @returns {string} */
 	toString() {
-		if (!this.ok) return `code error: ${this.err}`;
 		const lines = [];
 		for (let i = 0; i < this.names.length; i++) {
 			lines.push(
@@ -1190,9 +995,14 @@ export class Code {
 	parse(input, start = -1, end = -1) {
 		return parser(this, input, start, end);
 	}
-	/** @returns {string} */
+	/** @returns {CodeError | null} */
+	error() {
+		if (this.err.length === 0) return null;
+		return { kind: "grammar", messages: [...this.err] };
+	}
+	/** @returns {CodeError | null} */
 	errors() {
-		return this.err.join("\n");
+		return this.error();
 	}
 	/** @param {number} id @returns {string} */
 	id_name(id) {
@@ -1591,9 +1401,9 @@ let peg_code = new Code(null, { boot: peg_ptree }); // peg boot grammar
  */
 export function compile(grammar, transforms = {}, extras = {}) {
 	const parse = parser(peg_code, grammar);
-	if (!parse.ok) throw new Error("*** grammar fault...\n" + err_report(parse));
+	if (!parse.ok) throw parse.errors();
 	const code = new Code(parse, { transforms, extras });
-	if (!code.ok) throw new Error("*** grammar errors...\n" + code.errors());
+	if (!code.ok) throw code.errors();
 	return code;
 }
 
